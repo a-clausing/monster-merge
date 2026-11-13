@@ -69,7 +69,9 @@ function physics(dt){
  fx=fx.filter(p=>p.life-->0);
  for(const p of fx){p.x+=p.vx;p.y+=p.vy;p.vy+=.05}
 }
+const monsterFiles=['slime','imp','goblin','skeleton-warrior','orc-brute','cave-troll','iron-ogre','runic-golem','demon-lord','ancient-dragon','forgotten-one'];const monsterArt=monsterFiles.map(n=>{const i=new Image();i.src='assets/'+n+'.png';return i});
 function orb(x,y,r,l){
+ const art=monsterArt[l];if(art&&art.complete&&art.naturalWidth){g.save();g.shadowColor=colors[l];g.shadowBlur=Math.max(5,r*.18);g.drawImage(art,x-r,y-r,r*2,r*2);g.restore();return}
  g.save();g.translate(x,y);
  const base=colors[l],shade=g.createRadialGradient(-r*.3,-r*.4,r*.05,0,0,r);
  shade.addColorStop(0,'#f6f1db');shade.addColorStop(.16,base);shade.addColorStop(.65,'#242138');shade.addColorStop(1,'#070b15');
