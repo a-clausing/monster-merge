@@ -66,6 +66,7 @@ function physics(dt){
  // Substepping and repeated collision resolution make the orbs behave like rolling marbles.
  const substeps=5,step=dt/substeps;
  for(let k=0;k<substeps;k++){
+  const previousPositions=new Map(balls.map(b=>[b,{x:b.x,y:b.y}]));
   for(const ball of balls){
    ball.squish=Math.max(0,(ball.squish||0)-.008*step);
    ball.age+=step;
@@ -80,21 +81,16 @@ function physics(dt){
    if(ball.y+ball.r>py+ph){
     ball.y=py+ph-ball.r;
     if(ball.vy>0)ball.vy=-ball.vy*Math.max(.04,.34-ball.l*.032);
-    // Ground traction couples horizontal travel to actual rotation.
-    const rollingSpeed=ball.spin*ball.r;
-    const traction=.19;
-    const slip=ball.vx-rollingSpeed;
-    ball.vx-=slip*traction*step;
-    ball.spin+=slip*traction*step/Math.max(1,ball.r);
-    ball.vx*=Math.pow(.975,step);
-    ball.spin*=Math.pow(.972,step);
-    if(Math.abs(ball.vx)<.075&&Math.abs(ball.spin*ball.r)<.075){ball.vx=0;ball.spin=0}
+    // Ground friction dissipates motion; rotation never drives translation.
+    ball.vx*=Math.pow(.967,step);
+    ball.spin*=Math.pow(.85,step);
+    if(Math.abs(ball.vx)<.09)ball.vx=0;
     if(Math.abs(ball.vy)<.14)ball.vy=0;
    }
    // Air drag and contact damping prevent perpetual spinning.
    ball.spin*=Math.pow(.985,step);
    if(Math.abs(ball.spin*ball.r)<.045)ball.spin=0;
-   ball.angle+=ball.spin*step;
+
   }
   let pair=null;
   for(let pass=0;pass<3;pass++){
@@ -127,8 +123,7 @@ function physics(dt){
       const friction=Math.max(-impulse*.42,Math.min(impulse*.42,-slip/total));
       x.vx-=friction*inv1*tx;x.vy-=friction*inv1*ty;
       y.vx+=friction*inv2*tx;y.vy+=friction*inv2*ty;
-      x.spin=(x.spin||0)-friction*inv1/Math.max(1,x.r)*.7;
-      y.spin=(y.spin||0)-friction*inv2/Math.max(1,y.r)*.7;
+
      }
      // On a slope of touching orbs, gravity creates rolling motion rather
      // than requiring a strong collision to shove an orb sideways.
@@ -141,7 +136,7 @@ function physics(dt){
         const slopeForce=atWall?0:(.34+q.l*.055)*ty*.13*step;
         q.vx+=tx*slopeForce;
         q.vy+=ty*slopeForce;
-        q.spin=(q.spin||0)+tx*slopeForce/Math.max(1,q.r);
+
        }
       }
      }
@@ -157,6 +152,27 @@ function physics(dt){
     if(pair)break;
    }
    if(pair)break;
+  }
+  // Rotate only when the center actually travels. A trapped orb cannot
+  // spin in place forever, even if contact forces keep nudging its velocity.
+  for(const b of balls){
+   const prev=previousPositions.get(b);if(!prev)continue;
+   const dx=b.x-prev.x,dy=b.y-prev.y;
+   const travel=Math.hypot(dx,dy);
+   const touchingFloor=b.y+b.r>=py+ph-1;
+   let touchingOrb=false;
+   for(const other of balls){if(other===b)continue;
+    if(Math.hypot(other.x-b.x,other.y-b.y)<b.r+other.r+1.5){touchingOrb=true;break}
+   }
+   const supported=touchingFloor||touchingOrb;
+   const atWall=b.x-b.r<=px+1||b.x+b.r>=px+pw-1;
+   if(supported&&travel>.09){
+    const rotation=Math.max(-.055,Math.min(.055,dx/Math.max(1,b.r)));
+    b.angle=(b.angle||0)+rotation;
+   }
+   if(travel<.12){b.spin=0;if(supported&&Math.abs(b.vx)<.13)b.vx=0}
+   else b.spin=0;
+   if(atWall&&Math.abs(b.vx)<.25)b.vx=0;
   }
   if(pair){merge(...pair);break}
  }
