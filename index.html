@@ -376,7 +376,7 @@ function draw(){
  if(canDrop&&!ended){g.setLineDash([4,8]);g.strokeStyle='#ffb2ddaa';g.lineWidth=2;g.beginPath();g.moveTo(aim,py-25);g.lineTo(aim,py+ph);g.stroke();g.setLineDash([]);orb(aim,py-35,sizes[next]*s,next)}
  g.save();g.beginPath();g.rect(px,py,pw,ph);g.clip();
  if(screenShake>0)g.translate((Math.random()-.5)*screenShake*2,(Math.random()-.5)*screenShake*2);
- for(let b of balls){g.save();g.translate(b.x,b.y);const q=b.squish||0;g.rotate(b.angle||0);g.scale(1+q*.45,1-q);orb(0,0,b.r,b.l);g.restore()}
+ for(let b of balls){g.save();g.translate(b.x,b.y);g.rotate(b.angle||0);orb(0,0,b.r,b.l);g.restore()}
  drawMergeFX();g.restore();drawFinalSkull();
  if(warning>0){g.fillStyle='#f13c72';g.shadowColor='#ff3175';g.shadowBlur=7;g.fillRect(px,py-6,pw*Math.min(1,warning/125),3);g.shadowBlur=0}
  if(ended){g.fillStyle='#080811e6';g.fillRect(0,0,w,h);stonePanel(w/2-145,h/2-85,290,165);g.textAlign='center';g.fillStyle='#f7d99c';g.font='bold 31px Georgia';g.fillText('GAME OVER',w/2,h/2-35);g.font='19px Georgia';g.fillText('Score '+score.toLocaleString(),w/2,h/2+4);g.font='14px Georgia';g.fillText('Tap Restart to play again',w/2,h/2+38)}
