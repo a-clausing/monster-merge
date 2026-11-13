@@ -75,8 +75,8 @@ function physics(dt){
    ball.y+=ball.vy*step;
    ball.vx*=Math.pow(.999-Math.min(ball.l,10)*.0012,step);
    ball.vy*=Math.pow(.999-Math.min(ball.l,10)*.001,step);
-   if(ball.x-ball.r<px){ball.x=px+ball.r;ball.vx=Math.abs(ball.vx)*Math.max(.12,.65-ball.l*.055)}
-   if(ball.x+ball.r>px+pw){ball.x=px+pw-ball.r;ball.vx=-Math.abs(ball.vx)*Math.max(.12,.65-ball.l*.055)}
+   if(ball.x-ball.r<px){ball.x=px+ball.r;ball.vx=Math.abs(ball.vx)<.28?0:Math.abs(ball.vx)*Math.max(.08,.40-ball.l*.035);ball.vy*=Math.pow(.91,step);ball.spin*=Math.pow(.76,step)}
+   if(ball.x+ball.r>px+pw){ball.x=px+pw-ball.r;ball.vx=Math.abs(ball.vx)<.28?0:-Math.abs(ball.vx)*Math.max(.08,.40-ball.l*.035);ball.vy*=Math.pow(.91,step);ball.spin*=Math.pow(.76,step)}
    if(ball.y+ball.r>py+ph){
     ball.y=py+ph-ball.r;
     if(ball.vy>0)ball.vy=-ball.vy*Math.max(.04,.34-ball.l*.032);
@@ -86,10 +86,14 @@ function physics(dt){
     const slip=ball.vx-rollingSpeed;
     ball.vx-=slip*traction*step;
     ball.spin+=slip*traction*step/Math.max(1,ball.r);
-    ball.vx*=Math.pow(.994,step);
+    ball.vx*=Math.pow(.975,step);
+    ball.spin*=Math.pow(.972,step);
+    if(Math.abs(ball.vx)<.075&&Math.abs(ball.spin*ball.r)<.075){ball.vx=0;ball.spin=0}
     if(Math.abs(ball.vy)<.14)ball.vy=0;
    }
-   ball.spin*=Math.pow(.998,step);
+   // Air drag and contact damping prevent perpetual spinning.
+   ball.spin*=Math.pow(.985,step);
+   if(Math.abs(ball.spin*ball.r)<.045)ball.spin=0;
    ball.angle+=ball.spin*step;
   }
   let pair=null;
@@ -133,13 +137,17 @@ function physics(dt){
       for(const [q,sign] of [[x,-1],[y,1]]){
        const supported=(sign===-1?ny>0:ny<0);
        if(supported){
-        const slopeForce=(.34+q.l*.055)*ty*.28*step;
+        const atWall=q.x-q.r<=px+1||q.x+q.r>=px+pw-1;
+        const slopeForce=atWall?0:(.34+q.l*.055)*ty*.13*step;
         q.vx+=tx*slopeForce;
         q.vy+=ty*slopeForce;
         q.spin=(q.spin||0)+tx*slopeForce/Math.max(1,q.r);
        }
       }
      }
+     // Orb-to-orb contact dissipates rotation and lets a packed pile settle.
+     x.spin=(x.spin||0)*Math.pow(.94,step);
+     y.spin=(y.spin||0)*Math.pow(.94,step);
      // Correct any small wall/floor penetrations created by collision separation.
      for(const q of [x,y]){
       q.x=Math.max(px+q.r,Math.min(px+pw-q.r,q.x));
