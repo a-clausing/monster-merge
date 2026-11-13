@@ -10,17 +10,17 @@ function physics(dt){
  for(let k=0;k<substeps;k++){
   for(const ball of balls){
    ball.age+=step;
-   ball.vy+=0.34*step;
+   ball.vy+=(0.34+Math.min(ball.l,10)*0.055)*step;
    ball.x+=ball.vx*step;
    ball.y+=ball.vy*step;
-   ball.vx*=Math.pow(.998,step);
-   ball.vy*=Math.pow(.999,step);
-   if(ball.x-ball.r<px){ball.x=px+ball.r;ball.vx=Math.abs(ball.vx)*.62}
-   if(ball.x+ball.r>px+pw){ball.x=px+pw-ball.r;ball.vx=-Math.abs(ball.vx)*.62}
+   ball.vx*=Math.pow(.997-Math.min(ball.l,10)*.004,step);
+   ball.vy*=Math.pow(.999-Math.min(ball.l,10)*.001,step);
+   if(ball.x-ball.r<px){ball.x=px+ball.r;ball.vx=Math.abs(ball.vx)*Math.max(.12,.65-ball.l*.055)}
+   if(ball.x+ball.r>px+pw){ball.x=px+pw-ball.r;ball.vx=-Math.abs(ball.vx)*Math.max(.12,.65-ball.l*.055)}
    if(ball.y+ball.r>py+ph){
     ball.y=py+ph-ball.r;
-    if(ball.vy>0)ball.vy=-ball.vy*.28;
-    ball.vx*=.985;
+    if(ball.vy>0)ball.vy=-ball.vy*Math.max(.04,.34-ball.l*.032);
+    ball.vx*=Math.max(.78,.985-ball.l*.017);
     if(Math.abs(ball.vy)<.14)ball.vy=0;
    }
   }
@@ -34,21 +34,21 @@ function physics(dt){
      if(x.l===y.l&&x.age>5&&y.age>5){pair=[x,y];break}
      const nx=dx/distance,ny=dy/distance;
      // Equal-density spheres: heavier/larger orbs resist movement more.
-     const m1=x.r*x.r,m2=y.r*y.r,inv1=1/m1,inv2=1/m2,total=inv1+inv2;
+     const m1=Math.pow(x.r,3.3),m2=Math.pow(y.r,3.3),inv1=1/m1,inv2=1/m2,total=inv1+inv2;
      const overlap=minimum-distance;
      const correction=Math.max(0,overlap-.01)*.88/total;
      x.x-=nx*correction*inv1;x.y-=ny*correction*inv1;
      y.x+=nx*correction*inv2;y.y+=ny*correction*inv2;
      const rvx=y.vx-x.vx,rvy=y.vy-x.vy,normalSpeed=rvx*nx+rvy*ny;
      if(normalSpeed<0){
-      const restitution=Math.abs(normalSpeed)>1.3?.55:.12;
+      const restitution=Math.abs(normalSpeed)>1.3?Math.max(.07,.60-Math.max(x.l,y.l)*.065):.06;
       const impulse=-(1+restitution)*normalSpeed/total;
       x.vx-=impulse*inv1*nx;x.vy-=impulse*inv1*ny;
       y.vx+=impulse*inv2*nx;y.vy+=impulse*inv2*ny;
       // Tangential friction transfers momentum across off-centre contacts.
       const tx=-ny,ty=nx;
       const slip=rvx*tx+rvy*ty;
-      const friction=Math.max(-impulse*.22,Math.min(impulse*.22,-slip/total));
+      const friction=Math.max(-impulse*.28,Math.min(impulse*.28,-slip/total));
       x.vx-=friction*inv1*tx;x.vy-=friction*inv1*ty;
       y.vx+=friction*inv2*tx;y.vy+=friction*inv2*ty;
      }
