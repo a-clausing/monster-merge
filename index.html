@@ -51,7 +51,12 @@ function merge(a,b){
   skullFX={life:120,total:120};spawnMergeFX(x,y,10,sizes[10]*s);screenShake=6;
  }else{
   spawnMergeFX(x,y,l,sizes[l]*s);
-  balls.push({x,y,r:sizes[l]*s,l,vx:0,vy:-1,age:0});
+  // Conserve the incoming pair's motion: the merged orb continues along
+  // their shared trajectory instead of abruptly falling straight down.
+  // Same-level orbs have equal mass, so their velocity is the average.
+  const vx=(a.vx+b.vx)*.88;
+  const vy=(a.vy+b.vy)*.88;
+  balls.push({x,y,r:sizes[l]*s,l,vx,vy,age:0});
  }
  score+=Math.round(10*(l+1)*(l+1)*multiplier);
  if(score>best){best=score;localStorage.setItem('monsterMergeBest',best)}
