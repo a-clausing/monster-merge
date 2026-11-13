@@ -302,7 +302,20 @@ function rune(x,y,size){
  g.beginPath();g.moveTo(0,-size);g.lineTo(size*.55,0);g.lineTo(0,size);g.lineTo(-size*.55,0);g.closePath();g.stroke();
  g.beginPath();g.moveTo(0,-size*.6);g.lineTo(0,size*.6);g.moveTo(-size*.35,0);g.lineTo(size*.35,0);g.stroke();g.restore();
 }
+const dungeonArt=new Image();let dungeonArtReady=false;
+dungeonArt.onload=()=>{dungeonArtReady=true};
+dungeonArt.onerror=()=>{dungeonArtReady=false};
+dungeonArt.src='dungeon-stage.png';
 function stageBackdrop(){
+ if(dungeonArtReady){
+  // Map the artwork's empty pit onto the actual collision playfield.
+  // The art is decorative: collision geometry and orb sizes are unchanged.
+  const artLeft=.084,artRight=.915,artTop=.214,artBottom=.890;
+  const imageWidth=pw/(artRight-artLeft),imageHeight=ph/(artBottom-artTop);
+  g.drawImage(dungeonArt,px-artLeft*imageWidth,py-artTop*imageHeight,imageWidth,imageHeight);
+  return;
+ }
+
  let bg=g.createLinearGradient(0,0,0,h);bg.addColorStop(0,'#160d21');bg.addColorStop(.42,'#171127');bg.addColorStop(1,'#080813');g.fillStyle=bg;g.fillRect(0,0,w,h);
  // Receding dungeon arches behind the playfield.
  g.save();g.strokeStyle='#51405b55';g.lineWidth=11;
