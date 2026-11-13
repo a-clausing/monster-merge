@@ -3,7 +3,72 @@ const c=document.querySelector('canvas'),g=c.getContext('2d'),names=['Slime','Im
 function rand(){return Math.floor(Math.random()*4)}function resize(){let d=devicePixelRatio||1;w=innerWidth;h=innerHeight;c.width=w*d;c.height=h*d;g.setTransform(d,0,0,d,0,0);s=Math.min(1,(w-20)/355);px=10;py=Math.max(125,h*.17);pw=w-20;ph=h-py-32;aim=w/2}function reset(){balls=[];fx=[];score=0;lives=3;warning=0;ended=false;next=rand();canDrop=true}resize();reset();addEventListener('resize',resize);
 function move(e){aim=Math.max(px+sizes[next]*s,Math.min(px+pw-sizes[next]*s,e.clientX))}c.onpointerdown=e=>{drag=true;move(e);c.setPointerCapture(e.pointerId)};c.onpointermove=e=>{if(drag)move(e)};c.onpointerup=e=>{if(!drag)return;drag=false;if(ended||!canDrop)return;let r=sizes[next]*s;balls.push({x:aim,y:py-34,r,l:next,vx:0,vy:0,age:0});next=rand();canDrop=false;setTimeout(()=>canDrop=true,420)};
 function merge(a,b){let l=a.l+1,x=(a.x+b.x)/2,y=(a.y+b.y)/2;balls=balls.filter(q=>q!==a&&q!==b);score+=10*(l+1)*(l+1);if(score>best){best=score;localStorage.setItem('monsterMergeBest',best)}for(let i=0;i<15;i++){let t=Math.random()*7;fx.push({x,y,vx:Math.cos(t)*3,vy:Math.sin(t)*3,life:25,col:colors[Math.min(l,10)]})}if(l<11)balls.push({x,y,r:sizes[l]*s,l,vx:0,vy:-1,age:0})}
-function physics(dt){if(ended)return;for(let k=0;k<3;k++){for(let b of balls){b.age+=dt/3;b.vy+=.18*dt/3;b.x+=b.vx*dt/3;b.y+=b.vy*dt/3;b.vx*=.992;if(b.x-b.r<px){b.x=px+b.r;b.vx=Math.abs(b.vx)*.25}if(b.x+b.r>px+pw){b.x=px+pw-b.r;b.vx=-Math.abs(b.vx)*.25}if(b.y+b.r>py+ph){b.y=py+ph-b.r;b.vy=-Math.abs(b.vy)*.18}}let pair;outer:for(let i=0;i<balls.length;i++)for(let j=i+1;j<balls.length;j++){let a=balls[i],b=balls[j],dx=b.x-a.x,dy=b.y-a.y,d=Math.hypot(dx,dy)||.01,limit=a.r+b.r;if(d<limit){if(a.l===b.l&&a.age>5&&b.age>5){pair=[a,b];break outer}let nx=dx/d,ny=dy/d,p=(limit-d)/2;a.x-=nx*p;a.y-=ny*p;b.x+=nx*p;b.y+=ny*p;let v=(b.vx-a.vx)*nx+(b.vy-a.vy)*ny;if(v<0){a.vx+=v*nx*.45;a.vy+=v*ny*.45;b.vx-=v*nx*.45;b.vy-=v*ny*.45}}}if(pair){merge(...pair);break}}warning=balls.some(b=>b.age>110&&b.y-b.r<py+8)?warning+dt:Math.max(0,warning-dt*2);if(warning>125){lives--;warning=0;if(lives<=0)ended=true;else for(let b of balls)if(b.y-b.r<py+20){b.y+=12;b.vy+=3}}fx=fx.filter(p=>p.life-->0);for(let p of fx){p.x+=p.vx;p.y+=p.vy;p.vy+=.05}}
+function physics(dt){
+ if(ended)return;
+ // Substepping and repeated collision resolution make the orbs behave like rolling marbles.
+ const substeps=5,step=dt/substeps;
+ for(let k=0;k<substeps;k++){
+  for(const ball of balls){
+   ball.age+=step;
+   ball.vy+=0.34*step;
+   ball.x+=ball.vx*step;
+   ball.y+=ball.vy*step;
+   ball.vx*=Math.pow(.998,step);
+   ball.vy*=Math.pow(.999,step);
+   if(ball.x-ball.r<px){ball.x=px+ball.r;ball.vx=Math.abs(ball.vx)*.62}
+   if(ball.x+ball.r>px+pw){ball.x=px+pw-ball.r;ball.vx=-Math.abs(ball.vx)*.62}
+   if(ball.y+ball.r>py+ph){
+    ball.y=py+ph-ball.r;
+    if(ball.vy>0)ball.vy=-ball.vy*.28;
+    ball.vx*=.985;
+    if(Math.abs(ball.vy)<.14)ball.vy=0;
+   }
+  }
+  let pair=null;
+  for(let pass=0;pass<3;pass++){
+   for(let i=0;i<balls.length;i++){
+    for(let j=i+1;j<balls.length;j++){
+     const x=balls[i],y=balls[j],dx=y.x-x.x,dy=y.y-x.y;
+     const distance=Math.hypot(dx,dy)||.00001,minimum=x.r+y.r;
+     if(distance>=minimum)continue;
+     if(x.l===y.l&&x.age>5&&y.age>5){pair=[x,y];break}
+     const nx=dx/distance,ny=dy/distance;
+     // Equal-density spheres: heavier/larger orbs resist movement more.
+     const m1=x.r*x.r,m2=y.r*y.r,inv1=1/m1,inv2=1/m2,total=inv1+inv2;
+     const overlap=minimum-distance;
+     const correction=Math.max(0,overlap-.01)*.88/total;
+     x.x-=nx*correction*inv1;x.y-=ny*correction*inv1;
+     y.x+=nx*correction*inv2;y.y+=ny*correction*inv2;
+     const rvx=y.vx-x.vx,rvy=y.vy-x.vy,normalSpeed=rvx*nx+rvy*ny;
+     if(normalSpeed<0){
+      const restitution=Math.abs(normalSpeed)>1.3?.55:.12;
+      const impulse=-(1+restitution)*normalSpeed/total;
+      x.vx-=impulse*inv1*nx;x.vy-=impulse*inv1*ny;
+      y.vx+=impulse*inv2*nx;y.vy+=impulse*inv2*ny;
+      // Tangential friction transfers momentum across off-centre contacts.
+      const tx=-ny,ty=nx;
+      const slip=rvx*tx+rvy*ty;
+      const friction=Math.max(-impulse*.22,Math.min(impulse*.22,-slip/total));
+      x.vx-=friction*inv1*tx;x.vy-=friction*inv1*ty;
+      y.vx+=friction*inv2*tx;y.vy+=friction*inv2*ty;
+     }
+     // Correct any small wall/floor penetrations created by collision separation.
+     for(const q of [x,y]){
+      q.x=Math.max(px+q.r,Math.min(px+pw-q.r,q.x));
+      if(q.y+q.r>py+ph){q.y=py+ph-q.r;if(q.vy>0)q.vy=0}
+     }
+    }
+    if(pair)break;
+   }
+   if(pair)break;
+  }
+  if(pair){merge(...pair);break}
+ }
+ warning=balls.some(q=>q.age>110&&q.y-q.r<py+8)?warning+dt:Math.max(0,warning-dt*2);
+ if(warning>125){lives--;warning=0;if(lives<=0)ended=true;else for(const q of balls)if(q.y-q.r<py+20){q.y+=12;q.vy+=3}}
+ fx=fx.filter(p=>p.life-->0);
+ for(const p of fx){p.x+=p.vx;p.y+=p.vy;p.vy+=.05}
+}
 function orb(x,y,r,l){g.save();let grad=g.createRadialGradient(x-r*.3,y-r*.35,1,x,y,r);grad.addColorStop(0,'#ffffff88');grad.addColorStop(.5,colors[l]);grad.addColorStop(1,'#131127');g.shadowColor=colors[l];g.shadowBlur=8;g.fillStyle=grad;g.beginPath();g.arc(x,y,r,0,7);g.fill();g.shadowBlur=0;g.strokeStyle=colors[l];g.lineWidth=Math.max(2,r*.1);g.stroke();g.beginPath();g.arc(x-r*.22,y-r*.25,r*.63,3.5,5.2);g.strokeStyle='#ffffff99';g.lineWidth=2;g.stroke();g.font=Math.floor(r*1.05)+'px system-ui';g.textAlign='center';g.textBaseline='middle';g.fillText(icons[l],x,y);g.restore()}
 function draw(){let bg=g.createLinearGradient(0,0,0,h);bg.addColorStop(0,'#25172d');bg.addColorStop(1,'#080a13');g.fillStyle=bg;g.fillRect(0,0,w,h);g.fillStyle='#f3d18d';g.textAlign='center';g.font='bold 26px Georgia';g.fillText('MONSTER MERGE',w/2,35);g.font='15px Georgia';g.fillText('SCORE '+score+'     BEST '+best,w/2,62);g.font='14px Georgia';g.fillText('MISTAKES LEFT  '+lives+'/3',w/2,87);g.fillStyle='#151625';g.fillRect(px,py,pw,ph);g.lineWidth=6;g.strokeStyle='#786078';g.strokeRect(px,py,pw,ph);for(let y=py+40;y<py+ph;y+=42){g.strokeStyle='#ffffff0b';g.lineWidth=1;g.beginPath();g.moveTo(px,y);g.lineTo(px+pw,y);g.stroke()}g.strokeStyle='#e45c8b';g.setLineDash([7,6]);g.beginPath();g.moveTo(px,py+8);g.lineTo(px+pw,py+8);g.stroke();g.setLineDash([]);if(canDrop&&!ended){g.setLineDash([3,8]);g.strokeStyle='#ffffff77';g.beginPath();g.moveTo(aim,py-30);g.lineTo(aim,py+ph);g.stroke();g.setLineDash([]);orb(aim,py-35,sizes[next]*s,next)}g.save();g.beginPath();g.rect(px,py,pw,ph);g.clip();for(let b of balls)orb(b.x,b.y,b.r,b.l);for(let p of fx){g.globalAlpha=p.life/25;g.fillStyle=p.col;g.fillRect(p.x,p.y,4,4)}g.restore();if(warning>0){g.fillStyle='#e34c72';g.fillRect(px,py-9,pw*Math.min(1,warning/125),4)}if(ended){g.fillStyle='#080811d9';g.fillRect(0,0,w,h);g.fillStyle='#f7d99c';g.font='bold 36px Georgia';g.fillText('GAME OVER',w/2,h/2);g.font='20px Georgia';g.fillText('Score '+score,w/2,h/2+35);g.font='16px Georgia';g.fillText('Tap Restart to play again',w/2,h/2+70)}}
 function loop(t){let dt=Math.min(2,(t-last)/16.67||1);last=t;physics(dt);draw();requestAnimationFrame(loop)}requestAnimationFrame(loop);
