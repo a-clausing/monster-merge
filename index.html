@@ -67,6 +67,7 @@ function physics(dt){
  const substeps=5,step=dt/substeps;
  for(let k=0;k<substeps;k++){
   for(const ball of balls){
+   ball.squish=Math.max(0,(ball.squish||0)-.008*step);
    ball.age+=step;
    ball.vy+=(0.34+Math.min(ball.l,10)*0.055)*step;
    ball.x+=ball.vx*step;
@@ -94,12 +95,16 @@ function physics(dt){
      // Equal-density spheres: heavier/larger orbs resist movement more.
      const m1=Math.pow(x.r,3.3),m2=Math.pow(y.r,3.3),inv1=1/m1,inv2=1/m2,total=inv1+inv2;
      const overlap=minimum-distance;
-     const correction=Math.max(0,overlap-.01)*.88/total;
+     const softAllowance=Math.min(x.r,y.r)*.045;
+     const correction=Math.max(0,overlap-softAllowance)*.64/total;
+     const compression=Math.min(.065,overlap/Math.max(1,minimum)*.35);
+     x.squish=Math.max(x.squish||0,compression);
+     y.squish=Math.max(y.squish||0,compression);
      x.x-=nx*correction*inv1;x.y-=ny*correction*inv1;
      y.x+=nx*correction*inv2;y.y+=ny*correction*inv2;
      const rvx=y.vx-x.vx,rvy=y.vy-x.vy,normalSpeed=rvx*nx+rvy*ny;
      if(normalSpeed<0){
-      const restitution=Math.abs(normalSpeed)>1.3?Math.max(.07,.60-Math.max(x.l,y.l)*.065):.06;
+      const restitution=Math.abs(normalSpeed)>1.3?Math.max(.045,.38-Math.max(x.l,y.l)*.038):.035;
       const impulse=-(1+restitution)*normalSpeed/total;
       x.vx-=impulse*inv1*nx;x.vy-=impulse*inv1*ny;
       y.vx+=impulse*inv2*nx;y.vy+=impulse*inv2*ny;
@@ -226,6 +231,6 @@ function drawFinalSkull(){
  g.font='bold 23px Georgia';g.fillStyle='#d6afff';g.fillText('SCORE ×'+formatMultiplier(),0,158);
  g.restore();
 }
-function draw(){let bg=g.createLinearGradient(0,0,0,h);bg.addColorStop(0,'#25172d');bg.addColorStop(1,'#080a13');g.fillStyle=bg;g.fillRect(0,0,w,h);g.fillStyle='#f3d18d';g.textAlign='center';g.font='bold 26px Georgia';g.fillText('MONSTER MERGE',w/2,35);g.font='15px Georgia';g.fillText('SCORE '+score+'     BEST '+best,w/2,62);g.font='bold 12px Georgia';g.textAlign='left';g.fillStyle='#d6afff';g.fillText('×'+formatMultiplier(),px+5,88);g.textAlign='center';g.fillStyle='#f3d18d';g.font='14px Georgia';g.fillText('MISTAKES LEFT  '+lives+'/3',w/2,87);g.fillStyle='#bba6ce';g.font='10px system-ui';g.fillText(artStatus,w/2,101);g.fillStyle='#151625';g.fillRect(px,py,pw,ph);for(let y=py+14;y<py+ph;y+=39){for(let x=px+8;x<px+pw;x+=74){let offset=(Math.floor((y-py)/39)%2)*36;g.fillStyle=((x+y)%3<1)?'#282536':'#20202e';g.fillRect(x+offset,y,70,36);g.strokeStyle='#0b0c19';g.lineWidth=1;g.strokeRect(x+offset,y,70,36)}}g.lineWidth=9;g.strokeStyle='#4b4053';g.strokeRect(px,py,pw,ph);g.lineWidth=2;g.strokeStyle='#a48a67';g.strokeRect(px-3,py-3,pw+6,ph+6);for(let y=py+40;y<py+ph;y+=42){g.strokeStyle='#ffffff0b';g.lineWidth=1;g.beginPath();g.moveTo(px,y);g.lineTo(px+pw,y);g.stroke()}g.strokeStyle='#e45c8b';g.setLineDash([7,6]);g.beginPath();g.moveTo(px,py+8);g.lineTo(px+pw,py+8);g.stroke();g.setLineDash([]);if(canDrop&&!ended){g.setLineDash([3,8]);g.strokeStyle='#ffffff77';g.beginPath();g.moveTo(aim,py-30);g.lineTo(aim,py+ph);g.stroke();g.setLineDash([]);orb(aim,py-35,sizes[next]*s,next)}g.save();g.beginPath();g.rect(px,py,pw,ph);g.clip();if(screenShake>0)g.translate((Math.random()-.5)*screenShake*2,(Math.random()-.5)*screenShake*2);for(let b of balls)orb(b.x,b.y,b.r,b.l);drawMergeFX();g.restore();drawFinalSkull();if(warning>0){g.fillStyle='#e34c72';g.fillRect(px,py-9,pw*Math.min(1,warning/125),4)}if(ended){g.fillStyle='#080811d9';g.fillRect(0,0,w,h);g.fillStyle='#f7d99c';g.font='bold 36px Georgia';g.fillText('GAME OVER',w/2,h/2);g.font='20px Georgia';g.fillText('Score '+score,w/2,h/2+35);g.font='16px Georgia';g.fillText('Tap Restart to play again',w/2,h/2+70)}}
+function draw(){let bg=g.createLinearGradient(0,0,0,h);bg.addColorStop(0,'#25172d');bg.addColorStop(1,'#080a13');g.fillStyle=bg;g.fillRect(0,0,w,h);g.fillStyle='#f3d18d';g.textAlign='center';g.font='bold 26px Georgia';g.fillText('MONSTER MERGE',w/2,35);g.font='15px Georgia';g.fillText('SCORE '+score+'     BEST '+best,w/2,62);g.font='bold 12px Georgia';g.textAlign='left';g.fillStyle='#d6afff';g.fillText('×'+formatMultiplier(),px+5,88);g.textAlign='center';g.fillStyle='#f3d18d';g.font='14px Georgia';g.fillText('MISTAKES LEFT  '+lives+'/3',w/2,87);g.fillStyle='#bba6ce';g.font='10px system-ui';g.fillText(artStatus,w/2,101);g.fillStyle='#151625';g.fillRect(px,py,pw,ph);for(let y=py+14;y<py+ph;y+=39){for(let x=px+8;x<px+pw;x+=74){let offset=(Math.floor((y-py)/39)%2)*36;g.fillStyle=((x+y)%3<1)?'#282536':'#20202e';g.fillRect(x+offset,y,70,36);g.strokeStyle='#0b0c19';g.lineWidth=1;g.strokeRect(x+offset,y,70,36)}}g.lineWidth=9;g.strokeStyle='#4b4053';g.strokeRect(px,py,pw,ph);g.lineWidth=2;g.strokeStyle='#a48a67';g.strokeRect(px-3,py-3,pw+6,ph+6);for(let y=py+40;y<py+ph;y+=42){g.strokeStyle='#ffffff0b';g.lineWidth=1;g.beginPath();g.moveTo(px,y);g.lineTo(px+pw,y);g.stroke()}g.strokeStyle='#e45c8b';g.setLineDash([7,6]);g.beginPath();g.moveTo(px,py+8);g.lineTo(px+pw,py+8);g.stroke();g.setLineDash([]);if(canDrop&&!ended){g.setLineDash([3,8]);g.strokeStyle='#ffffff77';g.beginPath();g.moveTo(aim,py-30);g.lineTo(aim,py+ph);g.stroke();g.setLineDash([]);orb(aim,py-35,sizes[next]*s,next)}g.save();g.beginPath();g.rect(px,py,pw,ph);g.clip();if(screenShake>0)g.translate((Math.random()-.5)*screenShake*2,(Math.random()-.5)*screenShake*2);for(let b of balls){g.save();g.translate(b.x,b.y);const q=b.squish||0;g.scale(1+q*.45,1-q);orb(0,0,b.r,b.l);g.restore()}drawMergeFX();g.restore();drawFinalSkull();if(warning>0){g.fillStyle='#e34c72';g.fillRect(px,py-9,pw*Math.min(1,warning/125),4)}if(ended){g.fillStyle='#080811d9';g.fillRect(0,0,w,h);g.fillStyle='#f7d99c';g.font='bold 36px Georgia';g.fillText('GAME OVER',w/2,h/2);g.font='20px Georgia';g.fillText('Score '+score,w/2,h/2+35);g.font='16px Georgia';g.fillText('Tap Restart to play again',w/2,h/2+70)}}
 function loop(t){let dt=Math.min(2,(t-last)/16.67||1);last=t;physics(dt);draw();requestAnimationFrame(loop)}requestAnimationFrame(loop);
 </script></html>
