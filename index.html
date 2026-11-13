@@ -70,16 +70,53 @@ function physics(dt){
  for(const p of fx){p.x+=p.vx;p.y+=p.vy;p.vy+=.05}
 }
 const monsterFiles=['slime','imp','goblin','skeleton-warrior','orc-brute','cave-troll','iron-ogre','runic-golem','demon-lord','ancient-dragon','forgotten-one'];const monsterArt=monsterFiles.map(()=>new Image());
+let artStatus='Loading original monsters...';
+async function nativeZipFiles(buffer){
+ const bytes=new Uint8Array(buffer),v=new DataView(buffer),files={};
+ let eocd=-1;
+ for(let p=bytes.length-22;p>=Math.max(0,bytes.length-65557);p--)if(v.getUint32(p,true)===0x06054b50){eocd=p;break}
+ if(eocd<0)throw Error('ZIP directory missing');
+ let pos=v.getUint32(eocd+16,true),count=v.getUint16(eocd+10,true);
+ for(let i=0;i<count;i++){
+  if(v.getUint32(pos,true)!==0x02014b50)throw Error('ZIP entry invalid');
+  const method=v.getUint16(pos+10,true),compressed=v.getUint32(pos+20,true);
+  const nameLength=v.getUint16(pos+28,true),extra=v.getUint16(pos+30,true),comment=v.getUint16(pos+32,true),offset=v.getUint32(pos+42,true);
+  const name=new TextDecoder().decode(bytes.subarray(pos+46,pos+46+nameLength));
+  const dataStart=offset+30+v.getUint16(offset+26,true)+v.getUint16(offset+28,true);
+  const compressedBytes=bytes.slice(dataStart,dataStart+compressed);
+  if(name.endsWith('.png')){
+   let data=compressedBytes;
+   if(method===8){
+    const stream=new Blob([compressedBytes]).stream().pipeThrough(new DecompressionStream('deflate-raw'));
+    data=new Uint8Array(await new Response(stream).arrayBuffer());
+   }else if(method!==0)throw Error('Unsupported ZIP compression');
+   files[name]=new Blob([data],{type:'image/png'});
+  }
+  pos+=46+nameLength+extra+comment;
+ }
+ return files;
+}
 async function loadMonsterArt(){
  try{
-  if(!window.JSZip)throw Error('ZIP decoder unavailable');
-  const response=await fetch('monster_merge_orbs.zip?v=1');if(!response.ok)throw Error('Artwork archive missing');
-  const zip=await JSZip.loadAsync(await response.arrayBuffer());
-  await Promise.all(monsterFiles.map(async(name,i)=>{
-   const file=zip.file('assets/'+name+'.png');if(!file)return;
-   const blob=await file.async('blob');monsterArt[i].src=URL.createObjectURL(blob);
-  }));
- }catch(e){console.warn('Monster artwork could not load',e)}
+  const response=await fetch('./monster_merge_orbs.zip?art=2',{cache:'no-store'});
+  if(!response.ok)throw Error('Artwork ZIP HTTP '+response.status);
+  const buffer=await response.arrayBuffer();let files;
+  try{files=await nativeZipFiles(buffer)}
+  catch(nativeError){
+   if(!window.JSZip)throw nativeError;
+   const zip=await JSZip.loadAsync(buffer);files={};
+   await Promise.all(monsterFiles.map(async n=>{const entry=zip.file('assets/'+n+'.png');if(entry)files['assets/'+n+'.png']=new Blob([await entry.async('uint8array')],{type:'image/png'})}));
+  }
+  let loaded=0;
+  await Promise.all(monsterFiles.map((name,i)=>new Promise(resolve=>{
+   const blob=files['assets/'+name+'.png'];if(!blob){resolve();return}
+   const url=URL.createObjectURL(blob),img=monsterArt[i];
+   img.onload=()=>{loaded++;URL.revokeObjectURL(url);resolve()};
+   img.onerror=()=>{URL.revokeObjectURL(url);resolve()};
+   img.src=url;
+  })));
+  artStatus=loaded===11?'11 ORIGINAL MONSTERS LOADED':'MONSTERS LOADED '+loaded+'/11';
+ }catch(e){artStatus='ART LOAD ERROR: '+e.message;console.error(e)}
 }loadMonsterArt();
 function orb(x,y,r,l){
  const art=monsterArt[l];if(art&&art.complete&&art.naturalWidth){g.save();g.shadowColor=colors[l];g.shadowBlur=Math.max(5,r*.18);g.drawImage(art,x-r,y-r,r*2,r*2);g.restore();return}
@@ -107,6 +144,6 @@ function orb(x,y,r,l){
  g.strokeStyle='#ffffffa8';g.lineWidth=Math.max(1.4,r*.05);g.lineCap='round';g.beginPath();g.arc(0,0,r*.77,3.55,5.05);g.stroke();
  g.restore();
 }
-function draw(){let bg=g.createLinearGradient(0,0,0,h);bg.addColorStop(0,'#25172d');bg.addColorStop(1,'#080a13');g.fillStyle=bg;g.fillRect(0,0,w,h);g.fillStyle='#f3d18d';g.textAlign='center';g.font='bold 26px Georgia';g.fillText('MONSTER MERGE',w/2,35);g.font='15px Georgia';g.fillText('SCORE '+score+'     BEST '+best,w/2,62);g.font='14px Georgia';g.fillText('MISTAKES LEFT  '+lives+'/3',w/2,87);g.fillStyle='#bba6ce';g.font='10px system-ui';g.fillText('DUNGEON EDITION',w/2,101);g.fillStyle='#151625';g.fillRect(px,py,pw,ph);for(let y=py+14;y<py+ph;y+=39){for(let x=px+8;x<px+pw;x+=74){let offset=(Math.floor((y-py)/39)%2)*36;g.fillStyle=((x+y)%3<1)?'#282536':'#20202e';g.fillRect(x+offset,y,70,36);g.strokeStyle='#0b0c19';g.lineWidth=1;g.strokeRect(x+offset,y,70,36)}}g.lineWidth=9;g.strokeStyle='#4b4053';g.strokeRect(px,py,pw,ph);g.lineWidth=2;g.strokeStyle='#a48a67';g.strokeRect(px-3,py-3,pw+6,ph+6);for(let y=py+40;y<py+ph;y+=42){g.strokeStyle='#ffffff0b';g.lineWidth=1;g.beginPath();g.moveTo(px,y);g.lineTo(px+pw,y);g.stroke()}g.strokeStyle='#e45c8b';g.setLineDash([7,6]);g.beginPath();g.moveTo(px,py+8);g.lineTo(px+pw,py+8);g.stroke();g.setLineDash([]);if(canDrop&&!ended){g.setLineDash([3,8]);g.strokeStyle='#ffffff77';g.beginPath();g.moveTo(aim,py-30);g.lineTo(aim,py+ph);g.stroke();g.setLineDash([]);orb(aim,py-35,sizes[next]*s,next)}g.save();g.beginPath();g.rect(px,py,pw,ph);g.clip();for(let b of balls)orb(b.x,b.y,b.r,b.l);for(let p of fx){g.globalAlpha=p.life/25;g.fillStyle=p.col;g.fillRect(p.x,p.y,4,4)}g.restore();if(warning>0){g.fillStyle='#e34c72';g.fillRect(px,py-9,pw*Math.min(1,warning/125),4)}if(ended){g.fillStyle='#080811d9';g.fillRect(0,0,w,h);g.fillStyle='#f7d99c';g.font='bold 36px Georgia';g.fillText('GAME OVER',w/2,h/2);g.font='20px Georgia';g.fillText('Score '+score,w/2,h/2+35);g.font='16px Georgia';g.fillText('Tap Restart to play again',w/2,h/2+70)}}
+function draw(){let bg=g.createLinearGradient(0,0,0,h);bg.addColorStop(0,'#25172d');bg.addColorStop(1,'#080a13');g.fillStyle=bg;g.fillRect(0,0,w,h);g.fillStyle='#f3d18d';g.textAlign='center';g.font='bold 26px Georgia';g.fillText('MONSTER MERGE',w/2,35);g.font='15px Georgia';g.fillText('SCORE '+score+'     BEST '+best,w/2,62);g.font='14px Georgia';g.fillText('MISTAKES LEFT  '+lives+'/3',w/2,87);g.fillStyle='#bba6ce';g.font='10px system-ui';g.fillText(artStatus,w/2,101);g.fillStyle='#151625';g.fillRect(px,py,pw,ph);for(let y=py+14;y<py+ph;y+=39){for(let x=px+8;x<px+pw;x+=74){let offset=(Math.floor((y-py)/39)%2)*36;g.fillStyle=((x+y)%3<1)?'#282536':'#20202e';g.fillRect(x+offset,y,70,36);g.strokeStyle='#0b0c19';g.lineWidth=1;g.strokeRect(x+offset,y,70,36)}}g.lineWidth=9;g.strokeStyle='#4b4053';g.strokeRect(px,py,pw,ph);g.lineWidth=2;g.strokeStyle='#a48a67';g.strokeRect(px-3,py-3,pw+6,ph+6);for(let y=py+40;y<py+ph;y+=42){g.strokeStyle='#ffffff0b';g.lineWidth=1;g.beginPath();g.moveTo(px,y);g.lineTo(px+pw,y);g.stroke()}g.strokeStyle='#e45c8b';g.setLineDash([7,6]);g.beginPath();g.moveTo(px,py+8);g.lineTo(px+pw,py+8);g.stroke();g.setLineDash([]);if(canDrop&&!ended){g.setLineDash([3,8]);g.strokeStyle='#ffffff77';g.beginPath();g.moveTo(aim,py-30);g.lineTo(aim,py+ph);g.stroke();g.setLineDash([]);orb(aim,py-35,sizes[next]*s,next)}g.save();g.beginPath();g.rect(px,py,pw,ph);g.clip();for(let b of balls)orb(b.x,b.y,b.r,b.l);for(let p of fx){g.globalAlpha=p.life/25;g.fillStyle=p.col;g.fillRect(p.x,p.y,4,4)}g.restore();if(warning>0){g.fillStyle='#e34c72';g.fillRect(px,py-9,pw*Math.min(1,warning/125),4)}if(ended){g.fillStyle='#080811d9';g.fillRect(0,0,w,h);g.fillStyle='#f7d99c';g.font='bold 36px Georgia';g.fillText('GAME OVER',w/2,h/2);g.font='20px Georgia';g.fillText('Score '+score,w/2,h/2+35);g.font='16px Georgia';g.fillText('Tap Restart to play again',w/2,h/2+70)}}
 function loop(t){let dt=Math.min(2,(t-last)/16.67||1);last=t;physics(dt);draw();requestAnimationFrame(loop)}requestAnimationFrame(loop);
 </script></html>
