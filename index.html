@@ -1,10 +1,12 @@
-<!doctype html><html lang="en"><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1,maximum-scale=1,user-scalable=no,viewport-fit=cover"><title>Monster Merge</title><style>*{box-sizing:border-box}body{margin:0;padding-top:env(safe-area-inset-top,0px);padding-bottom:env(safe-area-inset-bottom,0px);background:#0e0b19;color:#f6dca3;font-family:Georgia;overflow:hidden}canvas{display:block;width:100vw;touch-action:none}button{position:fixed;top:calc(env(safe-area-inset-top,0px) + 8px);right:10px;z-index:3;background:#39243f;color:#f4d7b5;border:1px solid #a7859e;border-radius:7px;padding:6px 9px;font:12px Georgia}small{display:none}#evolutionToggle{position:absolute;top:auto;bottom:auto;left:50%;right:auto;transform:translateX(-50%);background:#25132fef;border:1px solid #bb6aee;box-shadow:0 0 10px #a52bba55;font:bold 12px Georgia;padding:10px 12px}#evolutionClose{display:none;position:fixed;inset:0;z-index:4;background:#080612dd;touch-action:manipulation}#evolutionClose.open{display:block}#evolutionClose canvas{position:absolute;top:50%;left:50%;transform:translate(-50%,-50%);width:min(94vw,440px);height:auto;touch-action:manipulation}#evolutionClose button{position:absolute;top:calc(50% - min(62vw,275px));right:5%;font-size:16px}</style><canvas id="c"></canvas><button id="evolutionToggle" onclick="toggleEvolution(true)">EVOLUTION • 11 ↗</button><div id="evolutionClose" onclick="toggleEvolution(false)"><canvas id="legendCanvas" width="440" height="570"></canvas><button onclick="toggleEvolution(false)">✕ Close</button></div><button onclick="reset()">Restart</button><small>Drag to aim • Release to drop • Match orbs to merge</small><script src="https://cdnjs.cloudflare.com/ajax/libs/jszip/3.10.1/jszip.min.js"></script><script src="https://cdnjs.cloudflare.com/ajax/libs/matter-js/0.20.0/matter.min.js"></script><script>
+<!doctype html><html lang="en"><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1,maximum-scale=1,user-scalable=no,viewport-fit=cover"><title>Monster Merge</title><style>*{box-sizing:border-box}body{margin:0;padding-top:env(safe-area-inset-top,0px);padding-bottom:env(safe-area-inset-bottom,0px);background:#0e0b19;color:#f6dca3;font-family:Georgia;overflow:hidden}canvas{display:block;width:100vw;touch-action:none}button{position:fixed;top:calc(env(safe-area-inset-top,0px) + 8px);right:10px;z-index:3;background:#39243f;color:#f4d7b5;border:1px solid #a7859e;border-radius:7px;padding:6px 9px;font:12px Georgia}small{display:none}#evolutionToggle{position:absolute;top:auto;bottom:auto;left:50%;right:auto;transform:translateX(-50%);background:#25132fef;border:1px solid #bb6aee;box-shadow:0 0 10px #a52bba55;font:bold 12px Georgia;padding:10px 12px}#evolutionClose{display:none;position:fixed;inset:0;z-index:4;background:#080612dd;touch-action:manipulation}#evolutionClose.open{display:block}#evolutionClose canvas{position:absolute;top:50%;left:50%;transform:translate(-50%,-50%);width:min(94vw,440px);height:auto;touch-action:manipulation}#evolutionClose button{position:absolute;top:calc(50% + min(62vw,275px) + 8px);left:50%;right:auto;transform:translateX(-50%);font-size:16px;min-width:160px;padding:10px 20px}#monsterDetail{display:none;position:absolute;top:50%;left:50%;transform:translate(-50%,-50%);width:min(94vw,440px);height:auto;z-index:2;touch-action:manipulation}#monsterDetail.open{display:block}</style><canvas id="c"></canvas><button id="evolutionToggle" onclick="toggleEvolution(true)">EVOLUTION • 11 ↗</button><div id="evolutionClose"><canvas id="legendCanvas" width="440" height="570" onclick="tapBestiary(event)"></canvas><canvas id="monsterDetail" width="440" height="570" onclick="closeMonsterDetail()"></canvas><button id="bestiaryClose" onclick="closeBestiaryPanel()">✕ Close</button></div><button onclick="reset()">Restart</button><small>Drag to aim • Release to drop • Match orbs to merge</small><script src="https://cdnjs.cloudflare.com/ajax/libs/jszip/3.10.1/jszip.min.js"></script><script src="https://cdnjs.cloudflare.com/ajax/libs/matter-js/0.20.0/matter.min.js"></script><script>
 const c=document.querySelector('canvas'),g=c.getContext('2d'),names=['Slime','Imp','Goblin','Skeleton','Orc','Troll','Ogre','Golem','Demon','Dragon','Forgotten One'],icons=['🟢','👿','👺','💀','👹','🪨','👺','🗿','😈','🐉','👁️'],colors=['#71d85a','#f5a548','#d4cc58','#7acbf2','#b8514d','#66a075','#bd8553','#9470cb','#df4955','#efbd4b','#8671e6'],sizes=[13,17,21,26,32,39,47,56,67,80,96];let w,h,px,py,pw,ph,s,aim,balls=[],score=0,best=+(localStorage.getItem('monsterMergeBest')||0),lives=3,warning=0,ended=false,next=0,canDrop=true,drag=false,last=0,fx=[],screenShake=0,multiplier=1,finalClearCount=0,skullFX=null;
 const discoveryKey='monsterMergeDiscoveriesV1';let discovered=(()=>{try{const saved=JSON.parse(localStorage.getItem(discoveryKey));return Array.isArray(saved)?Array.from({length:11},(_,i)=>i<4||saved[i]===true):Array.from({length:11},(_,i)=>i<4)}catch(e){return Array.from({length:11},(_,i)=>i<4)}})();
 let discoveryBanner=null;
 function unlockMonster(level){if(level<0||level>=11||discovered[level])return;discovered[level]=true;try{localStorage.setItem(discoveryKey,JSON.stringify(discovered))}catch(e){}discoveryBanner={level,life:155,total:155};if(document.getElementById('evolutionClose').classList.contains('open'))drawBestiary()}
+const statsKey='monsterMergeStatsV1';let monsterStats=(()=>{try{const v=JSON.parse(localStorage.getItem(statsKey));return {dropped:Array.from({length:11},(_,i)=>Math.max(0,Number(v?.dropped?.[i])||0)),created:Array.from({length:11},(_,i)=>Math.max(0,Number(v?.created?.[i])||0))}}catch(e){return {dropped:Array(11).fill(0),created:Array(11).fill(0)}}})();
+function saveMonsterStats(){try{localStorage.setItem(statsKey,JSON.stringify(monsterStats))}catch(e){}}
 let physicsWorld=null,physicsWalls=[];let comboCount=0,comboTimer=0,comboBanner=null,mergePopups=[];function rand(){return Math.floor(Math.random()*4)}function resize(){let d=devicePixelRatio||1;const safeTop=parseFloat(getComputedStyle(document.body).paddingTop)||0;const safeBottom=parseFloat(getComputedStyle(document.body).paddingBottom)||0;const viewHeight=Math.max(350,innerHeight-safeTop-safeBottom);w=innerWidth;h=viewHeight;c.style.height=h+'px';c.width=w*d;c.height=h*d;g.setTransform(d,0,0,d,0,0);pw=Math.min(w-32,330);px=(w-pw)/2;py=148;ph=Math.max(100,viewHeight-py-72);s=pw/355*1.65;aim=w/2;document.getElementById('evolutionToggle').style.top=(safeTop+py+ph+13)+'px';}function reset(){if(window.Matter)setupPhysicsWorld();comboCount=0;comboTimer=0;comboBanner=null;mergePopups=[];balls=[];fx=[];skullFX=null;multiplier=1;finalClearCount=0;screenShake=0;score=0;lives=3;warning=0;ended=false;next=rand();canDrop=true}resize();reset();addEventListener('resize',()=>{resize();if(window.Matter){setupPhysicsWorld();for(const b of balls){b.body=null;ensurePhysicsBody(b)}}});
-function move(e){aim=Math.max(px+sizes[next]*s,Math.min(px+pw-sizes[next]*s,e.clientX))}c.onpointerdown=e=>{drag=true;move(e);c.setPointerCapture(e.pointerId)};c.onpointermove=e=>{if(drag)move(e)};c.onpointerup=e=>{if(!drag)return;drag=false;if(ended||!canDrop)return;let r=sizes[next]*s;comboCount=0;comboTimer=0;const dropped={x:aim,y:py+r+2,r,l:next,vx:0,vy:0,age:0};balls.push(dropped);ensurePhysicsBody(dropped);next=rand();canDrop=false;setTimeout(()=>canDrop=true,420)};
+function move(e){aim=Math.max(px+sizes[next]*s,Math.min(px+pw-sizes[next]*s,e.clientX))}c.onpointerdown=e=>{drag=true;move(e);c.setPointerCapture(e.pointerId)};c.onpointermove=e=>{if(drag)move(e)};c.onpointerup=e=>{if(!drag)return;drag=false;if(ended||!canDrop)return;let r=sizes[next]*s;comboCount=0;comboTimer=0;const dropped={x:aim,y:py+r+2,r,l:next,vx:0,vy:0,age:0};balls.push(dropped);ensurePhysicsBody(dropped);monsterStats.dropped[next]++;saveMonsterStats();next=rand();canDrop=false;setTimeout(()=>canDrop=true,420)};
 // Visual-only merge effects. No impulses, radius changes, or physics adjustments.
 function spawnMergeFX(x,y,l,r,chain=1){
  const power=Math.min(1,l/10),col=colors[Math.min(l,10)];
@@ -72,7 +74,7 @@ function drawComboFX(){
 }
 function merge(a,b){
  const l=a.l+1,x=(a.x+b.x)/2,y=(a.y+b.y)/2;
- if(l<11)unlockMonster(l);
+ if(l<11){monsterStats.created[l]++;saveMonsterStats();unlockMonster(l)}
  comboCount=comboTimer>0?comboCount+1:1;comboTimer=95;
  const chainBonus=1+Math.min(3,(comboCount-1)*.25);
  const gained=Math.round(10*(l+1)*(l+1)*multiplier*chainBonus);
@@ -392,7 +394,72 @@ function toggleEvolution(show){
  const overlay=document.getElementById('evolutionClose');
  overlay.classList.toggle('open',show);
  document.getElementById('evolutionToggle').style.display=show?'none':'block';
- if(!show)return;
+ if(!show){document.getElementById('monsterDetail').classList.remove('open');return}
+ drawBestiary();
+}
+function closeBestiaryPanel(){
+ if(document.getElementById('monsterDetail').classList.contains('open')){closeMonsterDetail();return}
+ toggleEvolution(false);
+}
+function tapBestiary(event){
+ const canvas=document.getElementById('legendCanvas'),rect=canvas.getBoundingClientRect();
+ const x=(event.clientX-rect.left)*440/rect.width,y=(event.clientY-rect.top)*570/rect.height;
+ for(let i=0;i<11;i++){
+  const cx=78+(i%3)*142,cy=116+Math.floor(i/3)*112;
+  if(Math.abs(x-cx)<62&&Math.abs(y-cy)<54){showMonsterDetail(i);return}
+ }
+}
+function drawLockedMonster(ctx,x,y,r,i){
+ ctx.save();
+ ctx.fillStyle='#211a2e';ctx.strokeStyle='#7b568e';ctx.lineWidth=2;
+ ctx.beginPath();ctx.arc(x,y,r,0,Math.PI*2);ctx.fill();ctx.stroke();
+ ctx.beginPath();ctx.arc(x,y,r-4,0,Math.PI*2);ctx.clip();
+ ctx.fillStyle='#08070d';
+ // Distinct horned shadow silhouettes conceal undiscovered creatures.
+ const horns=i%3;
+ ctx.beginPath();
+ if(horns===0){ctx.moveTo(x-18,y-8);ctx.lineTo(x-25,y-32);ctx.lineTo(x-8,y-19);ctx.lineTo(x+8,y-19);ctx.lineTo(x+25,y-32);ctx.lineTo(x+18,y-8)}
+ else if(horns===1){ctx.moveTo(x-20,y-6);ctx.lineTo(x-30,y-23);ctx.lineTo(x-12,y-17);ctx.lineTo(x,y-29);ctx.lineTo(x+12,y-17);ctx.lineTo(x+30,y-23);ctx.lineTo(x+20,y-6)}
+ else{ctx.moveTo(x-19,y-8);ctx.lineTo(x-13,y-30);ctx.lineTo(x-3,y-20);ctx.lineTo(x+13,y-31);ctx.lineTo(x+20,y-8)}
+ ctx.lineTo(x+24,y+30);ctx.lineTo(x-24,y+30);ctx.closePath();ctx.fill();
+ ctx.beginPath();ctx.ellipse(x,y+2,19,23,0,0,Math.PI*2);ctx.fill();
+ ctx.strokeStyle='#4f3468';ctx.lineWidth=1.5;
+ ctx.beginPath();ctx.moveTo(x-9,y+2);ctx.lineTo(x-3,y+4);ctx.moveTo(x+9,y+2);ctx.lineTo(x+3,y+4);ctx.stroke();
+ ctx.restore();
+}
+function showMonsterDetail(i){
+ const canvas=document.getElementById('monsterDetail'),ctx=canvas.getContext('2d');
+ canvas.classList.add('open');
+ document.getElementById('bestiaryClose').textContent='← Back to Evolution';
+ ctx.clearRect(0,0,440,570);ctx.fillStyle='#120b21';ctx.fillRect(0,0,440,570);
+ ctx.strokeStyle='#bd57ff';ctx.lineWidth=4;ctx.strokeRect(5,5,430,560);
+ ctx.textAlign='center';ctx.fillStyle='#f3d6a5';ctx.font='bold 24px Georgia';
+ ctx.fillText(discovered[i]?names[i].toUpperCase():'UNDISCOVERED',220,48);
+ ctx.fillStyle='#c5a8d4';ctx.font='bold 14px Georgia';ctx.fillText('MONSTER '+(i+1)+' OF 11',220,75);
+ const art=monsterArt[i],r=112,x=220,y=225;
+ if(discovered[i]&&art&&art.complete&&art.naturalWidth){
+  ctx.save();ctx.beginPath();ctx.arc(x,y,r,0,Math.PI*2);ctx.clip();
+  const side=Math.min(art.naturalWidth,art.naturalHeight);
+  ctx.drawImage(art,(art.naturalWidth-side)/2,(art.naturalHeight-side)/2,side,side,x-r,y-r,r*2,r*2);ctx.restore();
+ }else if(discovered[i]){
+  ctx.fillStyle=colors[i];ctx.beginPath();ctx.arc(x,y,r,0,Math.PI*2);ctx.fill();
+ }else drawLockedMonster(ctx,x,y,r,i);
+ ctx.fillStyle='#4b365e';ctx.fillRect(48,370,344,2);
+ ctx.font='bold 17px Georgia';ctx.fillStyle='#f6ddb1';
+ ctx.fillText('DROPPED',125,412);ctx.fillText('CREATED',315,412);
+ ctx.font='bold 31px Georgia';ctx.fillStyle='#e6b9ff';
+ ctx.fillText(monsterStats.dropped[i].toLocaleString(),125,454);
+ ctx.fillText(monsterStats.created[i].toLocaleString(),315,454);
+ ctx.font='13px Georgia';ctx.fillStyle='#bfa6cb';
+ ctx.fillText('Times placed into the dungeon',125,479);
+ ctx.fillText('Times made by merging',315,479);
+ ctx.font='14px Georgia';ctx.fillStyle='#d7b2ef';
+ ctx.fillText(discovered[i]?'DISCOVERED':'LOCKED • MERGE TO REVEAL',220,524);
+ ctx.font='12px Georgia';ctx.fillStyle='#a68db5';ctx.fillText('Tap the card or Back to return',220,547);
+}
+function closeMonsterDetail(){
+ document.getElementById('monsterDetail').classList.remove('open');
+ document.getElementById('bestiaryClose').textContent='✕ Close';
  drawBestiary();
 }
 function drawBestiary(){
@@ -414,13 +481,11 @@ function drawBestiary(){
    }else{ctx.fillStyle=colors[i];ctx.beginPath();ctx.arc(x,y,r,0,Math.PI*2);ctx.fill()}
    ctx.fillStyle='#f4d7ac';ctx.font='bold 13px Georgia';ctx.fillText((i+1)+'. '+names[i],x,y+52);
   }else{
-   ctx.fillStyle='#241b31';ctx.strokeStyle='#655274';ctx.lineWidth=2;
-   ctx.beginPath();ctx.arc(x,y,r,0,Math.PI*2);ctx.fill();ctx.stroke();
-   ctx.fillStyle='#7f6b92';ctx.font='bold 33px Georgia';ctx.fillText('?',x,y+12);
+   drawLockedMonster(ctx,x,y,r,i);
    ctx.fillStyle='#a58db8';ctx.font='bold 13px Georgia';ctx.fillText((i+1)+'. ???',x,y+52);
   }
  }
- ctx.fillStyle='#bfa6cb';ctx.font='12px Georgia';ctx.fillText('Tap anywhere to return to the game',220,552);
+ ctx.fillStyle='#bfa6cb';ctx.font='12px Georgia';ctx.fillText('TAP A MONSTER TO VIEW DETAILS',220,552);
 }
 function drawDiscoveryBanner(){
  if(!discoveryBanner)return;
