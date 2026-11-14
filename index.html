@@ -1,6 +1,6 @@
-<!doctype html><html lang="en"><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1,maximum-scale=1,user-scalable=no"><title>Monster Merge</title><style>*{box-sizing:border-box}body{margin:0;background:#0e0b19;color:#f6dca3;font-family:Georgia;overflow:hidden}canvas{display:block;width:100vw;height:100dvh;touch-action:none}button{position:fixed;top:8px;right:8px;background:#463051;color:#fff;border:1px solid #bba47a;border-radius:7px;padding:9px}small{position:fixed;bottom:5px;left:0;right:0;text-align:center;color:#c3b7cd;font:11px system-ui;pointer-events:none}</style><canvas id="c"></canvas><button onclick="reset()">Restart</button><small>Drag to aim • Release to drop • Match orbs to merge</small><script src="https://cdnjs.cloudflare.com/ajax/libs/jszip/3.10.1/jszip.min.js"></script><script>
+<!doctype html><html lang="en"><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1,maximum-scale=1,user-scalable=no"><title>Monster Merge</title><style>*{box-sizing:border-box}body{margin:0;background:#0e0b19;color:#f6dca3;font-family:Georgia;overflow:hidden}canvas{display:block;width:100vw;height:100dvh;touch-action:none}button{position:fixed;top:8px;right:10px;z-index:3;background:#39243f;color:#f4d7b5;border:1px solid #a7859e;border-radius:7px;padding:6px 9px;font:12px Georgia}small{display:none}</style><canvas id="c"></canvas><button onclick="reset()">Restart</button><small>Drag to aim • Release to drop • Match orbs to merge</small><script src="https://cdnjs.cloudflare.com/ajax/libs/jszip/3.10.1/jszip.min.js"></script><script>
 const c=document.querySelector('canvas'),g=c.getContext('2d'),names=['Slime','Imp','Goblin','Skeleton','Orc','Troll','Ogre','Golem','Demon','Dragon','Forgotten One'],icons=['🟢','👿','👺','💀','👹','🪨','👺','🗿','😈','🐉','👁️'],colors=['#71d85a','#f5a548','#d4cc58','#7acbf2','#b8514d','#66a075','#bd8553','#9470cb','#df4955','#efbd4b','#8671e6'],sizes=[13,17,21,26,32,39,47,56,67,80,96];let w,h,px,py,pw,ph,s,aim,balls=[],score=0,best=+(localStorage.getItem('monsterMergeBest')||0),lives=3,warning=0,ended=false,next=0,canDrop=true,drag=false,last=0,fx=[],screenShake=0,multiplier=1,finalClearCount=0,skullFX=null;
-function rand(){return Math.floor(Math.random()*4)}function resize(){let d=devicePixelRatio||1;w=innerWidth;h=innerHeight;c.width=w*d;c.height=h*d;g.setTransform(d,0,0,d,0,0);pw=Math.min(w-32,330);px=(w-pw)/2;py=105;ph=Math.max(420,h-115);s=pw/355*1.65;aim=w/2}function reset(){balls=[];fx=[];skullFX=null;multiplier=1;finalClearCount=0;screenShake=0;score=0;lives=3;warning=0;ended=false;next=rand();canDrop=true}resize();reset();addEventListener('resize',resize);
+function rand(){return Math.floor(Math.random()*4)}function resize(){let d=devicePixelRatio||1;w=innerWidth;h=innerHeight;c.width=w*d;c.height=h*d;g.setTransform(d,0,0,d,0,0);pw=Math.min(w-32,330);px=(w-pw)/2;py=148;ph=Math.max(100,h-py-18);s=pw/355*1.65;aim=w/2}function reset(){balls=[];fx=[];skullFX=null;multiplier=1;finalClearCount=0;screenShake=0;score=0;lives=3;warning=0;ended=false;next=rand();canDrop=true}resize();reset();addEventListener('resize',resize);
 function move(e){aim=Math.max(px+sizes[next]*s,Math.min(px+pw-sizes[next]*s,e.clientX))}c.onpointerdown=e=>{drag=true;move(e);c.setPointerCapture(e.pointerId)};c.onpointermove=e=>{if(drag)move(e)};c.onpointerup=e=>{if(!drag)return;drag=false;if(ended||!canDrop)return;let r=sizes[next]*s;balls.push({x:aim,y:py-34,r,l:next,vx:0,vy:0,age:0});next=rand();canDrop=false;setTimeout(()=>canDrop=true,420)};
 // Visual-only merge effects. No impulses, radius changes, or physics adjustments.
 function spawnMergeFX(x,y,l,r){
@@ -355,20 +355,22 @@ function stageBackdrop(){
  if(px>26){torch(Math.max(9,px-19),py+65);torch(Math.min(w-9,px+pw+19),py+65)}
 }
 function stageHUD(){
- const compact=w<380;
- g.textAlign='center';g.shadowColor='#000';g.shadowBlur=5;
- g.font='bold '+(compact?17:21)+'px Georgia';g.fillStyle='#f5dfc8';g.fillText('MONSTER MERGE',w/2,25);g.shadowBlur=0;
- g.strokeStyle='#ab32e8';g.shadowColor='#ad28f5';g.shadowBlur=7;g.lineWidth=1;
- g.beginPath();g.moveTo(w*.12,32);g.lineTo(w*.88,32);g.stroke();g.shadowBlur=0;
- const panelW=Math.min(120,pw*.34),panelY=40,panelH=53;
+ g.save();g.textAlign='center';g.shadowColor='#b934fa';g.shadowBlur=7;
+ g.fillStyle='#f4ddc5';g.font='bold '+Math.min(23,Math.max(16,w*.055))+'px Georgia';
+ g.fillText('MONSTER MERGE',w/2,27);g.shadowBlur=0;
+ g.strokeStyle='#8c2bd0';g.lineWidth=1;g.beginPath();g.moveTo(px,35);g.lineTo(px+pw,35);g.stroke();
+ const panelY=43,panelH=65,panelW=Math.min(116,pw*.34);
  stonePanel(px,panelY,panelW,panelH);stonePanel(px+pw-panelW,panelY,panelW,panelH);
- g.fillStyle='#e9cda6';g.font='bold 10px Georgia';g.fillText('SCORE',px+panelW/2,54);g.fillText('MISTAKES',px+pw-panelW/2,54);
- g.fillStyle='#ffd48d';g.font='bold 19px Georgia';g.fillText(score.toLocaleString(),px+panelW/2,76);
- g.fillStyle='#e7c3ff';g.font='bold 18px Georgia';g.fillText('☠'.repeat(lives)+'·'.repeat(3-lives),px+pw-panelW/2,78);
- g.font='10px Georgia';g.fillStyle='#c5abc9';g.fillText('BEST '+best.toLocaleString(),px+panelW/2,89);
- g.font='bold 11px Georgia';g.fillStyle='#db9bff';g.fillText('×'+formatMultiplier(),w/2,54);
- g.font='10px Georgia';g.fillStyle='#e5c7a4';g.fillText('NEXT',w/2,67);orb(w/2,82,11,next);
- g.fillStyle='#c7a8d6';g.font='9px system-ui';if(artStatus!=='Ready')g.fillText(artStatus,w/2,102);
+ g.fillStyle='#e9cda6';g.font='bold 11px Georgia';
+ g.fillText('SCORE',px+panelW/2,58);g.fillText('MISTAKES',px+pw-panelW/2,58);
+ g.fillStyle='#ffd48d';g.font='bold 19px Georgia';g.fillText(score.toLocaleString(),px+panelW/2,80);
+ g.fillStyle='#e7c3ff';g.font='bold 16px Georgia';g.fillText('☠'.repeat(lives)+'·'.repeat(3-lives),px+pw-panelW/2,82);
+ g.font='10px Georgia';g.fillStyle='#c5abc9';g.fillText('BEST '+best.toLocaleString(),px+panelW/2,99);
+ g.font='bold 11px Georgia';g.fillStyle='#e5c7a4';g.fillText('NEXT',w/2,53);
+ orb(w/2,77,Math.min(16,(pw-2*panelW)/3),next);
+ g.font='bold 10px Georgia';g.fillStyle='#db9bff';g.fillText('×'+formatMultiplier(),w/2,103);
+ if(artStatus!=='Ready'&&!artStatus.includes('LOADED')){g.font='9px system-ui';g.fillStyle='#d5b7df';g.fillText(artStatus,w/2,125)}
+ g.restore();
 }
 function draw(){
  stageBackdrop();stageHUD();
