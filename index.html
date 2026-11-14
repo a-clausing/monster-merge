@@ -445,14 +445,12 @@ function showMonsterDetail(i){
   ctx.fillStyle=colors[i];ctx.beginPath();ctx.arc(x,y,r,0,Math.PI*2);ctx.fill();
  }else{ctx.save();ctx.translate(x,y);ctx.scale(r/34,r/34);drawLockedMonster(ctx,0,0,34,i);ctx.restore()}
  ctx.fillStyle='#4b365e';ctx.fillRect(48,370,344,2);
- ctx.font='bold 17px Georgia';ctx.fillStyle='#f6ddb1';
- ctx.fillText('DROPPED',125,412);ctx.fillText('CREATED',315,412);
- ctx.font='bold 31px Georgia';ctx.fillStyle='#e6b9ff';
- ctx.fillText(monsterStats.dropped[i].toLocaleString(),125,454);
- ctx.fillText(monsterStats.created[i].toLocaleString(),315,454);
+ ctx.font='bold 19px Georgia';ctx.fillStyle='#f6ddb1';
+ ctx.fillText('TOTAL ENCOUNTERED',220,412);
+ ctx.font='bold 46px Georgia';ctx.fillStyle='#e6b9ff';
+ ctx.fillText((monsterStats.dropped[i]+monsterStats.created[i]).toLocaleString(),220,465);
  ctx.font='13px Georgia';ctx.fillStyle='#bfa6cb';
- ctx.fillText('Times placed into the dungeon',125,479);
- ctx.fillText('Times made by merging',315,479);
+ ctx.fillText('All monsters dropped or created through merging',220,493);
  ctx.font='14px Georgia';ctx.fillStyle='#d7b2ef';
  ctx.fillText(discovered[i]?'DISCOVERED':'LOCKED • MERGE TO REVEAL',220,524);
  ctx.font='12px Georgia';ctx.fillStyle='#a68db5';ctx.fillText('Tap the card or Back to return',220,547);
