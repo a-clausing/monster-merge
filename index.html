@@ -63,128 +63,99 @@ function merge(a,b){
 }
 function physics(dt){
  if(ended)return;
- // Substepping and repeated collision resolution make the orbs behave like rolling marbles.
- const substeps=5,step=dt/substeps;
- for(let k=0;k<substeps;k++){
-  const previousPositions=new Map(balls.map(b=>[b,{x:b.x,y:b.y}]));
-  for(const ball of balls){
-   ball.squish=Math.max(0,(ball.squish||0)-.008*step);
-   ball.age+=step;
-   ball.angle=ball.angle||0;ball.spin=ball.spin||0;
-   ball.vy+=(0.34+Math.min(ball.l,10)*0.055)*step;
-   ball.x+=ball.vx*step;
-   ball.y+=ball.vy*step;
-   ball.vx*=Math.pow(.999-Math.min(ball.l,10)*.0012,step);
-   ball.vy*=Math.pow(.999-Math.min(ball.l,10)*.001,step);
-   if(ball.x-ball.r<px){ball.x=px+ball.r;ball.vx=Math.abs(ball.vx)<.28?0:Math.abs(ball.vx)*Math.max(.08,.40-ball.l*.035);ball.vy*=Math.pow(.91,step);ball.spin*=Math.pow(.76,step)}
-   if(ball.x+ball.r>px+pw){ball.x=px+pw-ball.r;ball.vx=Math.abs(ball.vx)<.28?0:-Math.abs(ball.vx)*Math.max(.08,.40-ball.l*.035);ball.vy*=Math.pow(.91,step);ball.spin*=Math.pow(.76,step)}
-   if(ball.y+ball.r>py+ph){
-    ball.y=py+ph-ball.r;
-    if(ball.vy>0)ball.vy=-ball.vy*Math.max(.04,.34-ball.l*.032);
-    // Ground friction dissipates motion; rotation never drives translation.
-    ball.vx*=Math.pow(.967,step);
-    ball.spin*=Math.pow(.85,step);
-    if(Math.abs(ball.vx)<.09)ball.vx=0;
-    if(Math.abs(ball.vy)<.14)ball.vy=0;
-   }
-   // Air drag and contact damping prevent perpetual spinning.
-   ball.spin*=Math.pow(.985,step);
-   if(Math.abs(ball.spin*ball.r)<.045)ball.spin=0;
-
+ // Fixed, small integration steps keep collisions consistent across frame rates.
+ const steps=Math.max(1,Math.ceil(dt*5)),step=dt/steps;
+ const gravity=.34,groundY=py+ph,eps=.00001;
+ for(let k=0;k<steps;k++){
+  const before=new Map(balls.map(b=>[b,{x:b.x,y:b.y}]));
+  for(const b of balls){
+   b.age+=step;
+   b.squish=Math.max(0,(b.squish||0)-.008*step);
+   b.vy+=gravity*step;
+   // Light air resistance, with no artificial horizontal driving force.
+   b.vx*=Math.pow(.999,step);
+   b.vy*=Math.pow(.9995,step);
+   b.x+=b.vx*step;b.y+=b.vy*step;
   }
-  let pair=null;
-  for(let pass=0;pass<3;pass++){
-   for(let i=0;i<balls.length;i++){
+  let mergePair=null;
+  // Iterative contact solver: gravity, friction and collision impulses, not
+  // synthetic slope forces, determine how a stack settles.
+  for(let pass=0;pass<6;pass++){
+   for(const b of balls){
+    const left=px+b.r,right=px+pw-b.r,bottom=groundY-b.r;
+    if(b.x<left||b.x>right){
+     const side=b.x<left?-1:1;
+     b.x=side<0?left:right;
+     if(b.vx*side>0){b.vx=-b.vx*.12;if(Math.abs(b.vx)<.12)b.vx=0}
+     // Walls dissipate tangential energy; they do not create rotation.
+     b.vy*=.985;
+    }
+    if(b.y>bottom){
+     b.y=bottom;
+     if(b.vy>0){b.vy=-b.vy*(b.vy>1.4?.13:0);if(Math.abs(b.vy)<.15)b.vy=0}
+     // Static-like friction on the floor: gradual roll to rest.
+     b.vx*=Math.pow(.91,step);
+     if(Math.abs(b.vx)<.065)b.vx=0;
+    }
+   }
+   for(let i=0;i<balls.length&&!mergePair;i++){
     for(let j=i+1;j<balls.length;j++){
-     const x=balls[i],y=balls[j],dx=y.x-x.x,dy=y.y-x.y;
-     const distance=Math.hypot(dx,dy)||.00001,minimum=x.r+y.r;
-     if(distance>=minimum)continue;
-     if(x.l===y.l&&x.age>5&&y.age>5){pair=[x,y];break}
-     // A single orb balanced precisely atop another is an unstable equilibrium.
-     // Break the numerical symmetry gently so it rolls off instead of hovering.
-     if(Math.abs(dx)<Math.min(x.r,y.r)*.075 && Math.abs(dy)>minimum*.75){
-      const upper=dy<0?y:x,lower=dy<0?x:y;
-      const floorSupported=lower.y+lower.r>=py+ph-2;
-      if(floorSupported && upper.age>5){
-       const dir=upper.balanceDir||(upper.balanceDir=(upper.x>=w/2?-1:1));
-       upper.vx+=dir*.028*step;
+     const a=balls[i],b=balls[j],dx=b.x-a.x,dy=b.y-a.y;
+     const minDist=a.r+b.r,dist=Math.hypot(dx,dy);
+     if(dist>=minDist)continue;
+     if(a.l===b.l&&a.age>5&&b.age>5){mergePair=[a,b];break}
+     let nx,ny;
+     if(dist<eps){nx=(i+j)%2?1:-1;ny=0}
+     else{nx=dx/dist;ny=dy/dist}
+     const invA=1/Math.pow(a.r,2.5),invB=1/Math.pow(b.r,2.5),sum=invA+invB;
+     const overlap=minDist-dist,allowance=Math.min(a.r,b.r)*.018;
+     const correction=Math.max(0,overlap-allowance)*.82/sum;
+     a.x-=nx*correction*invA;a.y-=ny*correction*invA;
+     b.x+=nx*correction*invB;b.y+=ny*correction*invB;
+     const compression=Math.min(.065,overlap/minDist*.3);
+     a.squish=Math.max(a.squish||0,compression);
+     b.squish=Math.max(b.squish||0,compression);
+     const rvx=b.vx-a.vx,rvy=b.vy-a.vy,vn=rvx*nx+rvy*ny;
+     if(vn<0){
+      const restitution=Math.abs(vn)>1.4?.16:.015;
+      const jn=-(1+restitution)*vn/sum;
+      a.vx-=jn*invA*nx;a.vy-=jn*invA*ny;
+      b.vx+=jn*invB*nx;b.vy+=jn*invB*ny;
+      // Coulomb tangential friction; sliding contacts lose energy.
+      const tx=-ny,ty=nx,slip=rvx*tx+rvy*ty;
+      const jt=Math.max(-jn*.48,Math.min(jn*.48,-slip/sum));
+      a.vx-=jt*invA*tx;a.vy-=jt*invA*ty;
+      b.vx+=jt*invB*tx;b.vy+=jt*invB*ty;
+     }
+     // A perfect vertical two-ball stack is mathematically balanced.
+     // Add a tiny deterministic perturbation only for isolated, near-perfect
+     // top contacts so the upper orb can realistically tip off.
+     if(pass===0&&Math.abs(dx)<Math.min(a.r,b.r)*.025&&Math.abs(ny)>.97){
+      const upper=a.y<b.y?a:b,lower=upper===a?b:a;
+      if(lower.y+lower.r>=groundY-2&&upper.age>8){
+       const direction=upper.balanceDir||(upper.balanceDir=upper.x<w/2?-1:1);
+       upper.vx+=direction*.045*step;
       }
-     }
-     const nx=dx/distance,ny=dy/distance;
-     // Equal-density spheres: heavier/larger orbs resist movement more.
-     const m1=Math.pow(x.r,3.3),m2=Math.pow(y.r,3.3),inv1=1/m1,inv2=1/m2,total=inv1+inv2;
-     const overlap=minimum-distance;
-     const softAllowance=Math.min(x.r,y.r)*.045;
-     const correction=Math.max(0,overlap-softAllowance)*.64/total;
-     const compression=Math.min(.065,overlap/Math.max(1,minimum)*.35);
-     x.squish=Math.max(x.squish||0,compression);
-     y.squish=Math.max(y.squish||0,compression);
-     x.x-=nx*correction*inv1;x.y-=ny*correction*inv1;
-     y.x+=nx*correction*inv2;y.y+=ny*correction*inv2;
-     const rvx=y.vx-x.vx,rvy=y.vy-x.vy,normalSpeed=rvx*nx+rvy*ny;
-     if(normalSpeed<0){
-      const restitution=Math.abs(normalSpeed)>1.3?Math.max(.045,.38-Math.max(x.l,y.l)*.038):.035;
-      const impulse=-(1+restitution)*normalSpeed/total;
-      x.vx-=impulse*inv1*nx;x.vy-=impulse*inv1*ny;
-      y.vx+=impulse*inv2*nx;y.vy+=impulse*inv2*ny;
-      // Tangential friction transfers momentum across off-centre contacts.
-      const tx=-ny,ty=nx;
-      const slip=rvx*tx+rvy*ty;
-      const friction=Math.max(-impulse*.42,Math.min(impulse*.42,-slip/total));
-      x.vx-=friction*inv1*tx;x.vy-=friction*inv1*ty;
-      y.vx+=friction*inv2*tx;y.vy+=friction*inv2*ty;
-
-     }
-     // On a slope of touching orbs, gravity creates rolling motion rather
-     // than requiring a strong collision to shove an orb sideways.
-     if(Math.abs(nx)>.08&&Math.abs(ny)>.12){
-      const tx=-ny,ty=nx;
-      for(const [q,sign] of [[x,-1],[y,1]]){
-       const supported=(sign===-1?ny>0:ny<0);
-       if(supported){
-        const atWall=q.x-q.r<=px+1||q.x+q.r>=px+pw-1;
-        const slopeForce=atWall?0:(.34+q.l*.055)*ty*.13*step;
-        q.vx+=tx*slopeForce;
-        q.vy+=ty*slopeForce;
-
-       }
-      }
-     }
-     // Orb-to-orb contact dissipates rotation and lets a packed pile settle.
-     x.spin=(x.spin||0)*Math.pow(.94,step);
-     y.spin=(y.spin||0)*Math.pow(.94,step);
-     // Correct any small wall/floor penetrations created by collision separation.
-     for(const q of [x,y]){
-      q.x=Math.max(px+q.r,Math.min(px+pw-q.r,q.x));
-      if(q.y+q.r>py+ph){q.y=py+ph-q.r;if(q.vy>0)q.vy=0}
      }
     }
-    if(pair)break;
    }
-   if(pair)break;
+   if(mergePair)break;
   }
-  // Rotate only when the center actually travels. A trapped orb cannot
-  // spin in place forever, even if contact forces keep nudging its velocity.
+  // Final wall/floor bounds after contact separation.
   for(const b of balls){
-   const prev=previousPositions.get(b);if(!prev)continue;
+   b.x=Math.max(px+b.r,Math.min(px+pw-b.r,b.x));
+   if(b.y+b.r>groundY){b.y=groundY-b.r;if(b.vy>0)b.vy=0}
+   const prev=before.get(b);
+   if(!prev)continue;
    const dx=b.x-prev.x,dy=b.y-prev.y;
-   const travel=Math.hypot(dx,dy);
-   const touchingFloor=b.y+b.r>=py+ph-1;
-   let touchingOrb=false;
-   for(const other of balls){if(other===b)continue;
-    if(Math.hypot(other.x-b.x,other.y-b.y)<b.r+other.r+1.5){touchingOrb=true;break}
-   }
-   const supported=touchingFloor||touchingOrb;
-   const atWall=b.x-b.r<=px+1||b.x+b.r>=px+pw-1;
-   if(supported&&travel>.09){
-    const rotation=Math.max(-.055,Math.min(.055,dx/Math.max(1,b.r)));
-    b.angle=(b.angle||0)+rotation;
-   }
-   if(travel<.12){b.spin=0;if(supported&&Math.abs(b.vx)<.13)b.vx=0}
-   else b.spin=0;
-   if(atWall&&Math.abs(b.vx)<.25)b.vx=0;
+   const nearContact=b.y+b.r>=groundY-1||balls.some(o=>o!==b&&Math.hypot(o.x-b.x,o.y-b.y)<b.r+o.r+1);
+   // Rotation is strictly proportional to real displacement: no free spin.
+   if(nearContact&&Math.abs(dx)>.035)b.angle=(b.angle||0)+Math.max(-.07,Math.min(.07,dx/b.r));
+   b.spin=0;
+   if(nearContact&&Math.abs(b.vx)<.055)b.vx=0;
+   if(nearContact&&Math.abs(b.vy)<.055)b.vy=0;
   }
-  if(pair){merge(...pair);break}
+  if(mergePair){merge(...mergePair);break}
  }
  warning=balls.some(q=>q.age>110&&q.y-q.r<py+8)?warning+dt:Math.max(0,warning-dt*2);
  if(warning>125){lives--;warning=0;if(lives<=0)ended=true;else for(const q of balls)if(q.y-q.r<py+20){q.y+=12;q.vy+=3}}
