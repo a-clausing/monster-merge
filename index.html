@@ -1,7 +1,7 @@
-<!doctype html><html lang="en"><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1,maximum-scale=1,user-scalable=no,viewport-fit=cover"><title>Monster Merge</title><style>*{box-sizing:border-box}body{margin:0;padding-top:env(safe-area-inset-top,0px);padding-bottom:env(safe-area-inset-bottom,0px);background:#0e0b19;color:#f6dca3;font-family:Georgia;overflow:hidden}canvas{display:block;width:100vw;touch-action:none}button{position:fixed;top:calc(env(safe-area-inset-top,0px) + 8px);right:10px;z-index:3;background:#39243f;color:#f4d7b5;border:1px solid #a7859e;border-radius:7px;padding:6px 9px;font:12px Georgia}small{display:none}#evolutionToggle{position:absolute;top:auto;bottom:auto;left:50%;right:auto;transform:translateX(-50%);background:#25132fef;border:1px solid #bb6aee;box-shadow:0 0 10px #a52bba55;font:bold 12px Georgia;padding:10px 12px}#evolutionClose{display:none;position:fixed;inset:0;z-index:4;background:#080612dd;touch-action:manipulation}#evolutionClose.open{display:block}#evolutionClose canvas{position:absolute;top:50%;left:50%;transform:translate(-50%,-50%);width:min(94vw,440px);height:auto;touch-action:manipulation}#evolutionClose button{position:absolute;top:calc(50% - min(62vw,275px));right:5%;font-size:16px}</style><canvas id="c"></canvas><button id="evolutionToggle" onclick="toggleEvolution(true)">EVOLUTION • 11 ↗</button><div id="evolutionClose" onclick="toggleEvolution(false)"><canvas id="legendCanvas" width="440" height="570"></canvas><button onclick="toggleEvolution(false)">✕ Close</button></div><button onclick="reset()">Restart</button><small>Drag to aim • Release to drop • Match orbs to merge</small><script src="https://cdnjs.cloudflare.com/ajax/libs/jszip/3.10.1/jszip.min.js"></script><script>
+<!doctype html><html lang="en"><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1,maximum-scale=1,user-scalable=no,viewport-fit=cover"><title>Monster Merge</title><style>*{box-sizing:border-box}body{margin:0;padding-top:env(safe-area-inset-top,0px);padding-bottom:env(safe-area-inset-bottom,0px);background:#0e0b19;color:#f6dca3;font-family:Georgia;overflow:hidden}canvas{display:block;width:100vw;touch-action:none}button{position:fixed;top:calc(env(safe-area-inset-top,0px) + 8px);right:10px;z-index:3;background:#39243f;color:#f4d7b5;border:1px solid #a7859e;border-radius:7px;padding:6px 9px;font:12px Georgia}small{display:none}#evolutionToggle{position:absolute;top:auto;bottom:auto;left:50%;right:auto;transform:translateX(-50%);background:#25132fef;border:1px solid #bb6aee;box-shadow:0 0 10px #a52bba55;font:bold 12px Georgia;padding:10px 12px}#evolutionClose{display:none;position:fixed;inset:0;z-index:4;background:#080612dd;touch-action:manipulation}#evolutionClose.open{display:block}#evolutionClose canvas{position:absolute;top:50%;left:50%;transform:translate(-50%,-50%);width:min(94vw,440px);height:auto;touch-action:manipulation}#evolutionClose button{position:absolute;top:calc(50% - min(62vw,275px));right:5%;font-size:16px}</style><canvas id="c"></canvas><button id="evolutionToggle" onclick="toggleEvolution(true)">EVOLUTION • 11 ↗</button><div id="evolutionClose" onclick="toggleEvolution(false)"><canvas id="legendCanvas" width="440" height="570"></canvas><button onclick="toggleEvolution(false)">✕ Close</button></div><button onclick="reset()">Restart</button><small>Drag to aim • Release to drop • Match orbs to merge</small><script src="https://cdnjs.cloudflare.com/ajax/libs/jszip/3.10.1/jszip.min.js"></script><script src="https://cdnjs.cloudflare.com/ajax/libs/matter-js/0.20.0/matter.min.js"></script><script>
 const c=document.querySelector('canvas'),g=c.getContext('2d'),names=['Slime','Imp','Goblin','Skeleton','Orc','Troll','Ogre','Golem','Demon','Dragon','Forgotten One'],icons=['🟢','👿','👺','💀','👹','🪨','👺','🗿','😈','🐉','👁️'],colors=['#71d85a','#f5a548','#d4cc58','#7acbf2','#b8514d','#66a075','#bd8553','#9470cb','#df4955','#efbd4b','#8671e6'],sizes=[13,17,21,26,32,39,47,56,67,80,96];let w,h,px,py,pw,ph,s,aim,balls=[],score=0,best=+(localStorage.getItem('monsterMergeBest')||0),lives=3,warning=0,ended=false,next=0,canDrop=true,drag=false,last=0,fx=[],screenShake=0,multiplier=1,finalClearCount=0,skullFX=null;
-function rand(){return Math.floor(Math.random()*4)}function resize(){let d=devicePixelRatio||1;const safeTop=parseFloat(getComputedStyle(document.body).paddingTop)||0;const safeBottom=parseFloat(getComputedStyle(document.body).paddingBottom)||0;const viewHeight=Math.max(350,innerHeight-safeTop-safeBottom);w=innerWidth;h=viewHeight;c.style.height=h+'px';c.width=w*d;c.height=h*d;g.setTransform(d,0,0,d,0,0);pw=Math.min(w-32,330);px=(w-pw)/2;py=148;ph=Math.max(100,viewHeight-py-72);s=pw/355*1.65;aim=w/2;document.getElementById('evolutionToggle').style.top=(safeTop+py+ph+13)+'px';}function reset(){balls=[];fx=[];skullFX=null;multiplier=1;finalClearCount=0;screenShake=0;score=0;lives=3;warning=0;ended=false;next=rand();canDrop=true}resize();reset();addEventListener('resize',resize);
-function move(e){aim=Math.max(px+sizes[next]*s,Math.min(px+pw-sizes[next]*s,e.clientX))}c.onpointerdown=e=>{drag=true;move(e);c.setPointerCapture(e.pointerId)};c.onpointermove=e=>{if(drag)move(e)};c.onpointerup=e=>{if(!drag)return;drag=false;if(ended||!canDrop)return;let r=sizes[next]*s;balls.push({x:aim,y:py+r+2,r,l:next,vx:0,vy:0,age:0});next=rand();canDrop=false;setTimeout(()=>canDrop=true,420)};
+function rand(){return Math.floor(Math.random()*4)}function resize(){let d=devicePixelRatio||1;const safeTop=parseFloat(getComputedStyle(document.body).paddingTop)||0;const safeBottom=parseFloat(getComputedStyle(document.body).paddingBottom)||0;const viewHeight=Math.max(350,innerHeight-safeTop-safeBottom);w=innerWidth;h=viewHeight;c.style.height=h+'px';c.width=w*d;c.height=h*d;g.setTransform(d,0,0,d,0,0);pw=Math.min(w-32,330);px=(w-pw)/2;py=148;ph=Math.max(100,viewHeight-py-72);s=pw/355*1.65;aim=w/2;document.getElementById('evolutionToggle').style.top=(safeTop+py+ph+13)+'px';}function reset(){if(window.Matter)setupPhysicsWorld();balls=[];fx=[];skullFX=null;multiplier=1;finalClearCount=0;screenShake=0;score=0;lives=3;warning=0;ended=false;next=rand();canDrop=true}resize();reset();addEventListener('resize',()=>{resize();if(window.Matter){setupPhysicsWorld();for(const b of balls){b.body=null;ensurePhysicsBody(b)}}});
+function move(e){aim=Math.max(px+sizes[next]*s,Math.min(px+pw-sizes[next]*s,e.clientX))}c.onpointerdown=e=>{drag=true;move(e);c.setPointerCapture(e.pointerId)};c.onpointermove=e=>{if(drag)move(e)};c.onpointerup=e=>{if(!drag)return;drag=false;if(ended||!canDrop)return;let r=sizes[next]*s;const dropped={x:aim,y:py+r+2,r,l:next,vx:0,vy:0,age:0};balls.push(dropped);ensurePhysicsBody(dropped);next=rand();canDrop=false;setTimeout(()=>canDrop=true,420)};
 // Visual-only merge effects. No impulses, radius changes, or physics adjustments.
 function spawnMergeFX(x,y,l,r){
  const power=Math.min(1,l/10),col=colors[Math.min(l,10)];
@@ -45,6 +45,7 @@ function drawMergeFX(){
 }
 function merge(a,b){
  const l=a.l+1,x=(a.x+b.x)/2,y=(a.y+b.y)/2;
+ if(window.Matter&&physicsWorld){for(const q of [a,b])if(q.body)Matter.Composite.remove(physicsWorld.world,q.body)}
  balls=balls.filter(q=>q!==a&&q!==b);
  if(l===11){
   finalClearCount++;multiplier=Math.pow(1.5,finalClearCount);
@@ -56,112 +57,84 @@ function merge(a,b){
   // Same-level orbs have equal mass, so their velocity is the average.
   const vx=(a.vx+b.vx)*.88;
   const vy=(a.vy+b.vy)*.88;
-  balls.push({x,y,r:sizes[l]*s,l,vx,vy,age:0,angle:((a.angle||0)+(b.angle||0))/2,spin:((a.spin||0)+(b.spin||0))*.75});
+  const merged={x,y,r:sizes[l]*s,l,vx,vy,age:0,angle:((a.angle||0)+(b.angle||0))/2};balls.push(merged);ensurePhysicsBody(merged);
  }
  score+=Math.round(10*(l+1)*(l+1)*multiplier);
  if(score>best){best=score;localStorage.setItem('monsterMergeBest',best)}
 }
+let physicsWorld=null,physicsWalls=[];
+function setupPhysicsWorld(){
+ if(!window.Matter)return;
+ const M=Matter;
+ physicsWorld=M.Engine.create({enableSleeping:true,positionIterations:10,velocityIterations:10,constraintIterations:3});
+ physicsWorld.gravity.y=1;physicsWorld.gravity.scale=.001;
+ const wall={isStatic:true,friction:.65,frictionStatic:1.1,restitution:0};
+ physicsWalls=[
+  M.Bodies.rectangle(px-25,py+ph/2,50,ph+400,wall),
+  M.Bodies.rectangle(px+pw+25,py+ph/2,50,ph+400,wall),
+  M.Bodies.rectangle(px+pw/2,py+ph+25,pw+100,50,wall)
+ ];
+ M.Composite.add(physicsWorld.world,physicsWalls);
+}
+function ensurePhysicsBody(b){
+ if(!window.Matter)return;
+ if(!physicsWorld)setupPhysicsWorld();
+ if(b.body)return;
+ const M=Matter;
+ const body=M.Bodies.circle(b.x,b.y,b.r,{
+  label:'monster',restitution:.08,friction:.42,frictionStatic:1.25,
+  frictionAir:.008,density:.0014,slop:.05,sleepThreshold:65
+ });
+ body.monster=b;
+ M.Composite.add(physicsWorld.world,body);
+ if(b.vx||b.vy)M.Body.setVelocity(body,{x:b.vx||0,y:b.vy||0});
+ if(b.angle)M.Body.setAngle(body,b.angle);
+ b.body=body;
+}
 function physics(dt){
  if(ended)return;
- // Fixed, small integration steps keep collisions consistent across frame rates.
- const steps=Math.max(1,Math.ceil(dt*5)),step=dt/steps;
- const gravity=.34,groundY=py+ph,eps=.00001;
- for(let k=0;k<steps;k++){
-  const before=new Map(balls.map(b=>[b,{x:b.x,y:b.y}]));
+ if(!window.Matter){
+  // Never silently simulate a different set of physics if the library fails.
+  return;
+ }
+ if(!physicsWorld)setupPhysicsWorld();
+ for(const b of balls)ensurePhysicsBody(b);
+ // Fixed time steps avoid large variable-frame impulses on mobile.
+ const count=Math.max(1,Math.min(4,Math.ceil(dt)));
+ const step=dt/count;
+ for(let k=0;k<count;k++){
+  Matter.Engine.update(physicsWorld,1000/60*step);
   for(const b of balls){
    b.age+=step;
-   b.squish=Math.max(0,(b.squish||0)-.008*step);
-   b.vy+=gravity*step;
-   // Light air resistance, with no artificial horizontal driving force.
-   b.vx*=Math.pow(.999,step);
-   b.vy*=Math.pow(.9995,step);
-   b.x+=b.vx*step;b.y+=b.vy*step;
+   b.x=b.body.position.x;b.y=b.body.position.y;
+   b.vx=b.body.velocity.x;b.vy=b.body.velocity.y;
+   b.angle=b.body.angle;
   }
-  let mergePair=null;
-  // Iterative contact solver: gravity, friction and collision impulses, not
-  // synthetic slope forces, determine how a stack settles.
-  for(let pass=0;pass<6;pass++){
-   for(const b of balls){
-    const left=px+b.r,right=px+pw-b.r,bottom=groundY-b.r;
-    if(b.x<left||b.x>right){
-     const side=b.x<left?-1:1;
-     b.x=side<0?left:right;
-     if(b.vx*side>0){b.vx=-b.vx*.12;if(Math.abs(b.vx)<.12)b.vx=0}
-     // Walls dissipate tangential energy; they do not create rotation.
-     b.vy*=.985;
-    }
-    if(b.y>bottom){
-     b.y=bottom;
-     if(b.vy>0){b.vy=-b.vy*(b.vy>1.4?.13:0);if(Math.abs(b.vy)<.15)b.vy=0}
-     // Static-like friction on the floor: gradual roll to rest.
-     b.vx*=Math.pow(.91,step);
-     if(Math.abs(b.vx)<.065)b.vx=0;
-    }
-   }
-   for(let i=0;i<balls.length&&!mergePair;i++){
-    for(let j=i+1;j<balls.length;j++){
-     const a=balls[i],b=balls[j],dx=b.x-a.x,dy=b.y-a.y;
-     const minDist=a.r+b.r,dist=Math.hypot(dx,dy);
-     if(dist>=minDist)continue;
-     if(a.l===b.l&&a.age>5&&b.age>5){mergePair=[a,b];break}
-     let nx,ny;
-     if(dist<eps){nx=(i+j)%2?1:-1;ny=0}
-     else{nx=dx/dist;ny=dy/dist}
-     const invA=1/Math.pow(a.r,2.5),invB=1/Math.pow(b.r,2.5),sum=invA+invB;
-     const overlap=minDist-dist,allowance=Math.min(a.r,b.r)*.018;
-     const correction=Math.max(0,overlap-allowance)*.82/sum;
-     a.x-=nx*correction*invA;a.y-=ny*correction*invA;
-     b.x+=nx*correction*invB;b.y+=ny*correction*invB;
-     const compression=Math.min(.065,overlap/minDist*.3);
-     a.squish=Math.max(a.squish||0,compression);
-     b.squish=Math.max(b.squish||0,compression);
-     const rvx=b.vx-a.vx,rvy=b.vy-a.vy,vn=rvx*nx+rvy*ny;
-     if(vn<0){
-      const restitution=Math.abs(vn)>1.4?.16:.015;
-      const jn=-(1+restitution)*vn/sum;
-      a.vx-=jn*invA*nx;a.vy-=jn*invA*ny;
-      b.vx+=jn*invB*nx;b.vy+=jn*invB*ny;
-      // Coulomb tangential friction; sliding contacts lose energy.
-      const tx=-ny,ty=nx,slip=rvx*tx+rvy*ty;
-      const jt=Math.max(-jn*.48,Math.min(jn*.48,-slip/sum));
-      a.vx-=jt*invA*tx;a.vy-=jt*invA*ty;
-      b.vx+=jt*invB*tx;b.vy+=jt*invB*ty;
-     }
-     // A perfect vertical two-ball stack is mathematically balanced.
-     // Add a tiny deterministic perturbation only for isolated, near-perfect
-     // top contacts so the upper orb can realistically tip off.
-     if(pass===0&&Math.abs(dx)<Math.min(a.r,b.r)*.025&&Math.abs(ny)>.97){
-      const upper=a.y<b.y?a:b,lower=upper===a?b:a;
-      if(lower.y+lower.r>=groundY-2&&upper.age>8){
-       const direction=upper.balanceDir||(upper.balanceDir=upper.x<w/2?-1:1);
-       upper.vx+=direction*.045*step;
-      }
-     }
-    }
-   }
-   if(mergePair)break;
+  let pair=null;
+  const contacts=physicsWorld.pairs.list;
+  for(const p of contacts){
+   if(!p.isActive)continue;
+   const a=p.bodyA.monster,b=p.bodyB.monster;
+   if(!a||!b||a===b)continue;
+   if(a.l===b.l&&a.age>5&&b.age>5){pair=[a,b];break}
   }
-  // Final wall/floor bounds after contact separation.
-  for(const b of balls){
-   b.x=Math.max(px+b.r,Math.min(px+pw-b.r,b.x));
-   if(b.y+b.r>groundY){b.y=groundY-b.r;if(b.vy>0)b.vy=0}
-   const prev=before.get(b);
-   if(!prev)continue;
-   const dx=b.x-prev.x,dy=b.y-prev.y;
-   const nearContact=b.y+b.r>=groundY-1||balls.some(o=>o!==b&&Math.hypot(o.x-b.x,o.y-b.y)<b.r+o.r+1);
-   // Rotation is strictly proportional to real displacement: no free spin.
-   if(nearContact&&Math.abs(dx)>.035)b.angle=(b.angle||0)+Math.max(-.07,Math.min(.07,dx/b.r));
-   b.spin=0;
-   if(nearContact&&Math.abs(b.vx)<.055)b.vx=0;
-   if(nearContact&&Math.abs(b.vy)<.055)b.vy=0;
-  }
-  if(mergePair){merge(...mergePair);break}
+  if(pair){merge(...pair);break}
  }
  warning=balls.some(q=>q.age>110&&q.y-q.r<py+8)?warning+dt:Math.max(0,warning-dt*2);
- if(warning>125){lives--;warning=0;if(lives<=0)ended=true;else for(const q of balls)if(q.y-q.r<py+20){q.y+=12;q.vy+=3}}
+ if(warning>125){
+  lives--;warning=0;
+  if(lives<=0)ended=true;
+  else for(const q of balls)if(q.y-q.r<py+20){
+   q.y+=12;q.vy+=3;
+   if(q.body){Matter.Body.setPosition(q.body,{x:q.x,y:q.y});Matter.Body.setVelocity(q.body,{x:q.vx,y:q.vy});Matter.Sleeping.set(q.body,false)}
+  }
+ }
  fx=fx.filter(p=>(p.life-=dt)>0);
- for(const p of fx){if(p.type==='spark'||p.type==='ember'){p.x+=p.vx*dt;p.y+=p.vy*dt;p.vy+=.055*dt;p.vx*=Math.pow(.987,dt)}}
- screenShake=Math.max(0,screenShake-dt*.32);if(skullFX){skullFX.life-=dt;if(skullFX.life<=0)skullFX=null}
+ for(const p of fx)if(p.type==='spark'||p.type==='ember'){
+  p.x+=p.vx*dt;p.y+=p.vy*dt;p.vy+=.055*dt;p.vx*=Math.pow(.987,dt)
+ }
+ screenShake=Math.max(0,screenShake-dt*.32);
+ if(skullFX){skullFX.life-=dt;if(skullFX.life<=0)skullFX=null}
 }
 const monsterFiles=['slime','imp','goblin','skeleton-warrior','orc-brute','cave-troll','iron-ogre','runic-golem','demon-lord','ancient-dragon','forgotten-one'];const monsterArt=monsterFiles.map(()=>new Image());
 let artStatus='Loading original monsters...';
