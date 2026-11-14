@@ -66,7 +66,7 @@ function merge(a,b){
 function setupPhysicsWorld(){
  if(!window.Matter)return;
  const M=Matter;
- physicsWorld=M.Engine.create({enableSleeping:true,positionIterations:10,velocityIterations:10,constraintIterations:3});
+ physicsWorld=M.Engine.create({enableSleeping:false,positionIterations:10,velocityIterations:10,constraintIterations:3});
  physicsWorld.gravity.y=1;physicsWorld.gravity.scale=.001;
  const wall={isStatic:true,friction:.65,frictionStatic:1.1,restitution:0};
  physicsWalls=[
@@ -82,8 +82,8 @@ function ensurePhysicsBody(b){
  if(b.body)return;
  const M=Matter;
  const body=M.Bodies.circle(b.x,b.y,b.r,{
-  label:'monster',restitution:.08,friction:.42,frictionStatic:1.25,
-  frictionAir:.008,density:.0014,slop:.05,sleepThreshold:65
+  label:'monster',restitution:.07,friction:.19,frictionStatic:.28,
+  frictionAir:.002,density:.0014,slop:.05,sleepThreshold:100
  });
  body.monster=b;
  M.Composite.add(physicsWorld.world,body);
@@ -103,6 +103,26 @@ function physics(dt){
  const count=Math.max(1,Math.min(4,Math.ceil(dt)));
  const step=dt/count;
  for(let k=0;k<count;k++){
+  // Resolve the exact-center equilibrium that a rigid-body solver correctly
+  // considers stable but feels sticky in a Suika-style game. Only affect an
+  // unsupported single-on-single stack, never a braced pile.
+  for(const upper of balls){
+   if(upper.age<12||!upper.body)continue;
+   const supporters=balls.filter(lower=>lower!==upper&&lower.body&&lower.y>upper.y&&
+    Math.hypot(lower.x-upper.x,lower.y-upper.y)<lower.r+upper.r+2.5);
+   if(supporters.length!==1)continue;
+   const lower=supporters[0];
+   const dx=upper.x-lower.x;
+   if(Math.abs(dx)>Math.min(upper.r,lower.r)*.35)continue;
+   const nearFloor=lower.y+lower.r>py+ph-3;
+   const braced=balls.some(q=>q!==upper&&q!==lower&&q.body&&
+    Math.hypot(q.x-lower.x,q.y-lower.y)<q.r+lower.r+2);
+   if(!nearFloor||braced)continue;
+   const dir=upper.tipDirection||(upper.tipDirection=upper.x<px+pw/2?1:-1);
+   const velocity=upper.body.velocity;
+   // Continuous gentle lateral acceleration overcomes the symmetric contact.
+   Matter.Body.setVelocity(upper.body,{x:Math.max(-2.4,Math.min(2.4,velocity.x+dir*.14*step)),y:velocity.y});
+  }
   Matter.Engine.update(physicsWorld,1000/60*step);
   for(const b of balls){
    b.age+=step;
