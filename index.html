@@ -170,13 +170,18 @@ function physics(dt){
    b.vx=b.body.velocity.x;b.vy=b.body.velocity.y;
    b.angle=b.body.angle;
   }
+  // Merge by the actual visible circular outlines, independently of Matter's
+  // contact-pair bookkeeping. The physics engine and movement remain unchanged.
   let pair=null;
-  const contacts=physicsWorld.pairs.list;
-  for(const p of contacts){
-   if(!p.isActive)continue;
-   const a=p.bodyA.monster,b=p.bodyB.monster;
-   if(!a||!b||a===b)continue;
-   if(a.l===b.l&&(a.age>5||a.chainBorn)&&(b.age>5||b.chainBorn)){pair=[a,b];break}
+  for(let i=0;i<balls.length&&!pair;i++){
+   const a=balls[i];
+   for(let j=i+1;j<balls.length;j++){
+    const b=balls[j];
+    if(a.l!==b.l)continue;
+    const dx=a.x-b.x,dy=a.y-b.y;
+    const touching=a.r+b.r;
+    if(dx*dx+dy*dy<=touching*touching){pair=[a,b];break}
+   }
   }
   if(pair){merge(...pair);break}
  }
