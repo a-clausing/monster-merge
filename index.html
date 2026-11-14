@@ -443,7 +443,7 @@ function showMonsterDetail(i){
   ctx.drawImage(art,(art.naturalWidth-side)/2,(art.naturalHeight-side)/2,side,side,x-r,y-r,r*2,r*2);ctx.restore();
  }else if(discovered[i]){
   ctx.fillStyle=colors[i];ctx.beginPath();ctx.arc(x,y,r,0,Math.PI*2);ctx.fill();
- }else drawLockedMonster(ctx,x,y,r,i);
+ }else{ctx.save();ctx.translate(x,y);ctx.scale(r/34,r/34);drawLockedMonster(ctx,0,0,34,i);ctx.restore()}
  ctx.fillStyle='#4b365e';ctx.fillRect(48,370,344,2);
  ctx.font='bold 17px Georgia';ctx.fillStyle='#f6ddb1';
  ctx.fillText('DROPPED',125,412);ctx.fillText('CREATED',315,412);
