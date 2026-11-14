@@ -305,14 +305,20 @@ function rune(x,y,size){
 const dungeonArt=new Image();let dungeonArtReady=false;
 dungeonArt.onload=()=>{dungeonArtReady=true};
 dungeonArt.onerror=()=>{dungeonArtReady=false};
-dungeonArt.src='dungeon-stage.png';
+fetch('dungeon-stage.b64?v=1').then(r=>{if(!r.ok)throw Error('stage download failed');return r.text()}).then(encoded=>{dungeonArt.src='data:image/jpeg;base64,'+encoded.trim()}).catch(()=>{dungeonArtReady=false});
 function stageBackdrop(){
  if(dungeonArtReady){
   // Map the artwork's empty pit onto the actual collision playfield.
   // The art is decorative: collision geometry and orb sizes are unchanged.
-  const artLeft=.084,artRight=.915,artTop=.214,artBottom=.890;
-  const imageWidth=pw/(artRight-artLeft),imageHeight=ph/(artBottom-artTop);
-  g.drawImage(dungeonArt,px-artLeft*imageWidth,py-artTop*imageHeight,imageWidth,imageHeight);
+  const artLeft=.084,artRight=.915;
+  const imageWidth=pw/(artRight-artLeft),imageX=px-artLeft*imageWidth;
+  const iw=dungeonArt.naturalWidth,ih=dungeonArt.naturalHeight;
+  const top=Math.round(ih*.214),bottom=Math.round(ih*.890);
+  // Slice the illustrated stage so the glowing frame follows the
+  // real playfield at any iPhone height without changing collision bounds.
+  g.drawImage(dungeonArt,0,0,iw,top,imageX,0,imageWidth,py);
+  g.drawImage(dungeonArt,0,top,iw,bottom-top,imageX,py,imageWidth,ph);
+  if(h>py+ph)g.drawImage(dungeonArt,0,bottom,iw,ih-bottom,imageX,py+ph,imageWidth,h-py-ph);
   return;
  }
 
