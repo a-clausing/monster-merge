@@ -1,7 +1,7 @@
 // Offline support for Monster Merge.
 // Network-first so updates still arrive as soon as you're online;
 // falls back to the cached copy when the network is unavailable.
-const CACHE = 'monster-merge-v1';
+const CACHE = 'monster-merge-v2';
 const ASSETS = [
   './',
   './index.html',
@@ -10,7 +10,13 @@ const ASSETS = [
   './vendor/jszip.min.js',
   './monster_merge_orbs.zip',
   './dungeon-stage.b64',
-  './home-screen.jpg',
+  './home-ui/hero.jpg',
+  './home-ui/floor.jpg',
+  './home-ui/plaque.png',
+  './home-ui/play.png',
+  './home-ui/achievements.png',
+  './home-ui/evolution.png',
+  './icons/gear.png',
   './icons/icon-180.png',
   './icons/icon-192.png',
   './icons/icon-512.png'
