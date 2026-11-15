@@ -101,49 +101,65 @@ const sfx=(()=>{
   noiseBuf=ctx.createBuffer(1,ctx.sampleRate*1.5,ctx.sampleRate);
   const d=noiseBuf.getChannelData(0);for(let i=0;i<d.length;i++)d[i]=Math.random()*2-1;
  }
- // ---- Background music: a generative creepy-dungeon loop ----
- // Low detuned drone + howling wind + slow, reverb-drenched bells on an A Phrygian scale.
+ // ---- Background music: steady, calm "focus" dungeon loop ----
+ // 92 BPM in A minor (Am | F | Dm | E, two bars each): plucked arpeggio, soft bass,
+ // a muted kick/tick pulse, a low pad, and faint wind + an A pedal drone for the dungeon feel.
+ const BPM=92,EIGHTH=60/BPM/2,A3=220;
+ const CHORDS=[{tones:[0,3,7,12],bass:-12},{tones:[-4,0,3,8],bass:-16},{tones:[-7,-4,0,5],bass:-19},{tones:[-5,-1,2,7],bass:-17}];
+ const ARP=[0,1,2,1,3,2,1,2];
+ const hz=st=>A3*Math.pow(2,st/12);
  function startMusic(){
   if(!ctx||!musicOn||music)return;
   const t=ctx.currentTime,nodes=[];
-  const droneF=ctx.createBiquadFilter();droneF.type='lowpass';droneF.frequency.value=420;droneF.Q.value=6;
-  const droneG=ctx.createGain();droneG.gain.value=.11;droneF.connect(droneG);droneG.connect(musicBus);
-  for(const [f,type,v] of [[55,'sawtooth',.5],[55.4,'sawtooth',.5],[82.4,'triangle',.35],[27.5,'sine',.9]]){
-   const o=ctx.createOscillator(),g=ctx.createGain();o.type=type;o.frequency.value=f;g.gain.value=v;o.connect(g);g.connect(droneF);o.start(t);nodes.push(o);
-  }
-  const lfo=ctx.createOscillator(),lfoG=ctx.createGain();lfo.frequency.value=.045;lfoG.gain.value=140;lfo.connect(lfoG);lfoG.connect(droneF.frequency);lfo.start(t);nodes.push(lfo);
+  // A pedal drone, kept low so the chords sit on top of it
+  const droneF=ctx.createBiquadFilter();droneF.type='lowpass';droneF.frequency.value=320;droneF.Q.value=4;
+  const droneG=ctx.createGain();droneG.gain.value=.045;droneF.connect(droneG);droneG.connect(musicBus);
+  for(const [f,v] of [[55,.5],[55.3,.5]]){const o=ctx.createOscillator(),g=ctx.createGain();o.type='sawtooth';o.frequency.value=f;g.gain.value=v;o.connect(g);g.connect(droneF);o.start(t);nodes.push(o)}
+  // faint wind
   const wind=ctx.createBufferSource();wind.buffer=noiseBuf;wind.loop=true;
-  const windF=ctx.createBiquadFilter();windF.type='bandpass';windF.frequency.value=380;windF.Q.value=3;
-  const windG=ctx.createGain();windG.gain.value=.05;wind.connect(windF);windF.connect(windG);windG.connect(musicBus);windG.connect(verb);
-  const wl=ctx.createOscillator(),wlG=ctx.createGain();wl.frequency.value=.07;wlG.gain.value=220;wl.connect(wlG);wlG.connect(windF.frequency);
-  const wl2=ctx.createOscillator(),wl2G=ctx.createGain();wl2.frequency.value=.031;wl2G.gain.value=.035;wl2.connect(wl2G);wl2G.connect(windG.gain);
-  wind.start(t);wl.start(t);wl2.start(t);nodes.push(wind,wl,wl2);
-  const padG=ctx.createGain();padG.gain.value=0;padG.connect(musicBus);padG.connect(verb);
-  const padF=ctx.createBiquadFilter();padF.type='lowpass';padF.frequency.value=1100;padF.connect(padG);
-  for(const f of [220,261.6,329.6,220.9]){const o=ctx.createOscillator();o.type='triangle';o.frequency.value=f;const vib=ctx.createOscillator(),vg=ctx.createGain();vib.frequency.value=4.5+Math.random();vg.gain.value=1.4;vib.connect(vg);vg.connect(o.frequency);o.connect(padF);o.start(t);vib.start(t);nodes.push(o,vib)}
-  const sw=ctx.createOscillator(),swG=ctx.createGain();sw.frequency.value=.055;swG.gain.value=.022;sw.connect(swG);swG.connect(padG.gain);padG.gain.setValueAtTime(.024,t);sw.start(t);nodes.push(sw);
-  musicBus.gain.cancelScheduledValues(t);musicBus.gain.setValueAtTime(musicBus.gain.value,t);musicBus.gain.linearRampToValueAtTime(.75,t+4);
-  music={nodes,next:t+2.5,toll:t+9,timer:setInterval(schedule,250)};
+  const windF=ctx.createBiquadFilter();windF.type='bandpass';windF.frequency.value=420;windF.Q.value=3;
+  const windG=ctx.createGain();windG.gain.value=.022;wind.connect(windF);windF.connect(windG);windG.connect(verb);
+  const wl=ctx.createOscillator(),wlG=ctx.createGain();wl.frequency.value=.07;wlG.gain.value=200;wl.connect(wlG);wlG.connect(windF.frequency);
+  wind.start(t);wl.start(t);nodes.push(wind,wl);
+  // pad: three voices that glide to each new chord
+  const padF=ctx.createBiquadFilter();padF.type='lowpass';padF.frequency.value=950;
+  const padG=ctx.createGain();padG.gain.value=.03;padF.connect(padG);padG.connect(musicBus);padG.connect(verb);
+  const pad=[0,1,2].map(i=>{const o=ctx.createOscillator();o.type='triangle';o.frequency.value=hz(CHORDS[0].tones[i]);o.connect(padF);o.start(t);nodes.push(o);return o});
+  musicBus.gain.cancelScheduledValues(t);musicBus.gain.setValueAtTime(musicBus.gain.value,t);musicBus.gain.linearRampToValueAtTime(.8,t+3);
+  music={nodes,pad,step:0,next:t+.3,timer:setInterval(schedule,100)};
  }
- const scale=[0,1,3,5,7,8,10]; // A Phrygian: dark, Spanish-dungeon flavour
- function bell(f,at,vol,len){
-  for(const [mult,v] of [[1,1],[2.76,.35],[5.4,.12]]){
-   const o=ctx.createOscillator(),g=ctx.createGain();o.type='sine';o.frequency.value=f*mult;
-   g.gain.setValueAtTime(0,at);g.gain.linearRampToValueAtTime(vol*v,at+.01);g.gain.exponentialRampToValueAtTime(.0001,at+len/mult**.3);
-   o.connect(g);g.connect(verb);g.connect(musicBus);o.start(at);o.stop(at+len+.1);
-  }
+ function pluck(f,at,vol){
+  const fl=ctx.createBiquadFilter();fl.type='lowpass';fl.frequency.setValueAtTime(2600,at);fl.frequency.exponentialRampToValueAtTime(700,at+.3);
+  const g=ctx.createGain();g.gain.setValueAtTime(0,at);g.gain.linearRampToValueAtTime(vol,at+.004);g.gain.exponentialRampToValueAtTime(.0001,at+.55);
+  fl.connect(g);g.connect(musicBus);g.connect(verb);
+  for(const [type,mult,v] of [['triangle',1,1],['sine',2,.3]]){const o=ctx.createOscillator(),og=ctx.createGain();o.type=type;o.frequency.value=f*mult;og.gain.value=v;o.connect(og);og.connect(fl);o.start(at);o.stop(at+.6)}
  }
+ function bassNote(f,at,len){
+  const o=ctx.createOscillator(),g=ctx.createGain(),fl=ctx.createBiquadFilter();o.type='triangle';o.frequency.value=f;fl.type='lowpass';fl.frequency.value=500;
+  g.gain.setValueAtTime(0,at);g.gain.linearRampToValueAtTime(.16,at+.02);g.gain.setTargetAtTime(.0001,at+len*.6,len*.25);
+  o.connect(fl);fl.connect(g);g.connect(musicBus);o.start(at);o.stop(at+len+.3);
+ }
+ function kickSoft(at){const o=ctx.createOscillator(),g=ctx.createGain();o.frequency.setValueAtTime(95,at);o.frequency.exponentialRampToValueAtTime(42,at+.12);g.gain.setValueAtTime(.2,at);g.gain.exponentialRampToValueAtTime(.0001,at+.22);o.connect(g);g.connect(musicBus);o.start(at);o.stop(at+.25)}
+ function tick(at,vol){const n=ctx.createBufferSource(),fl=ctx.createBiquadFilter(),g=ctx.createGain();n.buffer=noiseBuf;fl.type='highpass';fl.frequency.value=7000;g.gain.setValueAtTime(vol,at);g.gain.exponentialRampToValueAtTime(.0001,at+.04);n.connect(fl);fl.connect(g);g.connect(musicBus);n.start(at,Math.random());n.stop(at+.05)}
  function schedule(){
   if(!music||!ctx||ctx.state!=='running')return;
   const now=ctx.currentTime;
-  while(music.next<now+1){
-   const deg=scale[Math.floor(Math.random()*scale.length)],oct=Math.random()<.65?1:2;
-   const f=220*Math.pow(2,(deg+12*(oct-1))/12);
-   bell(f,music.next,.085,3.2);
-   if(Math.random()<.22)bell(f*Math.pow(2,1/12),music.next+.02,.04,2.6); // eerie half-step rub
-   music.next+=1.6+Math.random()*2.8;
+  if(music.next<now-.5)music.next=now+.05; // after a pause, don't try to catch up
+  while(music.next<now+.6){
+   const at=music.next,st=music.step,bar=Math.floor(st/8),e=st%8;
+   const chord=CHORDS[Math.floor(bar/2)%4],section=Math.floor(bar/8)%2;
+   if(e===0&&bar%2===0)music.pad.forEach((o,i)=>o.frequency.setTargetAtTime(hz(chord.tones[i]),at,.12));
+   // arpeggio (second half of every 16 bars goes up an octave)
+   const tone=chord.tones[ARP[e]]+(section?12:0);
+   if(!(e===7&&Math.random()<.3))pluck(hz(tone),at,e%2?.045:.065);
+   // bass on beats 1 and 3, a pickup on the "and" of 4
+   if(e===0||e===4)bassNote(hz(chord.bass),at,EIGHTH*3.6);
+   if(e===7&&bar%2===1)bassNote(hz(chord.bass+12),at,EIGHTH*.9);
+   // soft pulse: kick on 1 and 3, quiet ticks on the off-beats
+   if(e===0||e===4)kickSoft(at);
+   if(e%2===1)tick(at,.018);
+   music.step++;music.next+=EIGHTH;
   }
-  if(music.toll<now+1){bell(110,music.toll,.09,6);bell(55,music.toll,.06,7);music.toll+=14+Math.random()*8}
  }
  function stopMusic(){
   if(!music)return;const m=music;music=null;clearInterval(m.timer);
