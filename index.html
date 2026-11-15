@@ -88,19 +88,25 @@ try{screen.orientation?.lock?.('portrait').catch(()=>{})}catch(e){}
 const sfx=(()=>{
  let ctx=null,master=null,noiseBuf=null,lastThud=0,lastTick=0;
  let enabled=localStorage.getItem('monsterMergeSound')!=='off';
+ function unlock(){
+  // iOS: resume inside the gesture and play a silent buffer so the context really starts.
+  if(ctx.state!=='running')ctx.resume().catch(()=>{});
+  try{const b=ctx.createBuffer(1,1,22050),src=ctx.createBufferSource();src.buffer=b;src.connect(ctx.destination);src.start(0)}catch(e){}
+ }
  function init(){
-  if(ctx)return ctx.state==='suspended'&&ctx.resume();
+  if(ctx){unlock();return}
   const AC=window.AudioContext||window.webkitAudioContext;if(!AC)return;
-  ctx=new AC();
+  try{if(navigator.audioSession)navigator.audioSession.type='ambient'}catch(e){}
+  ctx=new AC();unlock();
   const comp=ctx.createDynamicsCompressor();comp.threshold.value=-14;comp.ratio.value=4;
   master=ctx.createGain();master.gain.value=.55;master.connect(comp);comp.connect(ctx.destination);
   noiseBuf=ctx.createBuffer(1,ctx.sampleRate*1.5,ctx.sampleRate);
   const d=noiseBuf.getChannelData(0);for(let i=0;i<d.length;i++)d[i]=Math.random()*2-1;
  }
  // iOS only allows audio to start from a user gesture.
- for(const ev of ['pointerdown','touchend','keydown'])addEventListener(ev,init,{passive:true});
- document.addEventListener('visibilitychange',()=>{if(!ctx)return;document.hidden?ctx.suspend():ctx.resume()});
- const ok=()=>enabled&&ctx&&ctx.state==='running'&&!document.hidden;
+ for(const ev of ['pointerdown','touchstart','touchend','mousedown','click','keydown'])addEventListener(ev,init,{passive:true,capture:true});
+ document.addEventListener('visibilitychange',()=>{if(!ctx)return;document.hidden?ctx.suspend().catch(()=>{}):ctx.resume().catch(()=>{})});
+ const ok=()=>{if(!enabled||!ctx||document.hidden)return false;if(ctx.state!=='running')ctx.resume().catch(()=>{});return ctx.state!=='closed'};
  function tone({f=440,f2=null,type='sine',t=0,dur=.2,vol=.3,attack=.005}){
   const o=ctx.createOscillator(),gn=ctx.createGain(),t0=ctx.currentTime+t;
   o.type=type;o.frequency.setValueAtTime(f,t0);if(f2)o.frequency.exponentialRampToValueAtTime(f2,t0+dur);
