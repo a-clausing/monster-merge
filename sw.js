@@ -1,7 +1,7 @@
 // Offline support for Monster Merge.
 // Network-first so updates still arrive as soon as you're online;
 // falls back to the cached copy when the network is unavailable.
-const CACHE = 'monster-merge-v5';
+const CACHE = 'monster-merge-v6';
 const ASSETS = [
   './',
   './index.html',
@@ -20,7 +20,6 @@ const ASSETS = [
   './home-v3/frame.webp',
   './home-v3/gear.webp',
   './home-v3/icon-home.webp',
-  './home-v3/icon-restart.webp',
   './home-v3/trophy.webp',
   './home-v3/book.webp',
   './fonts/cinzel-latin-700-normal.woff2',
