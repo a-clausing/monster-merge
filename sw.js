@@ -1,7 +1,7 @@
 // Offline support for Monster Merge.
 // Network-first so updates still arrive as soon as you're online;
 // falls back to the cached copy when the network is unavailable.
-const CACHE = 'monster-merge-v6';
+const CACHE = 'monster-merge-v7';
 const ASSETS = [
   './',
   './index.html',
@@ -26,7 +26,9 @@ const ASSETS = [
   './fonts/cinzel-latin-900-normal.woff2',
   './icons/icon-180.png',
   './icons/icon-192.png',
-  './icons/icon-512.png'
+  './icons/icon-512.png',
+  './icons/icon-512-maskable.png',
+  './icons/favicon-32.png'
 ];
 
 self.addEventListener('install', event => {

@@ -75,7 +75,7 @@ also add it to the `ASSETS` list in `sw.js` and bump the `CACHE` name
 | `monster_merge_orbs.zip` | The 11 monster orb images, loaded at startup |
 | `dungeon-stage.b64` | The game-screen dungeon backdrop (base64 image) |
 | `home-v3/` | Home screen and UI art: background, logo, reaper, orb, rocks, button frames, plaque, icons |
-| `icons/` | App icons (180, 192, 512 px) |
+| `icons/` | App icons: 180 (iPhone), 192 and 512 (Android/desktop), a padded 512 "maskable" version, and a 32 px browser-tab icon |
 | `fonts/` | Cinzel font (700 and 900 weights) and its license |
 | `vendor/` | Matter.js 0.20.0 and JSZip 3.10.1, bundled for offline play |
 
